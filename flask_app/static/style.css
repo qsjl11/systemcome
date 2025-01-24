@@ -1,0 +1,130 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f2f5;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 状态栏样式 */
+#status-bars {
+    margin-bottom: 30px;
+}
+
+.status-item {
+    margin-bottom: 15px;
+}
+
+.status-item label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.bar-container {
+    background-color: #eee;
+    height: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.bar {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+.cultivation {
+    background: #ff9966;
+}
+
+.trust {
+    background: #66ccff;
+}
+
+.stress {
+    background: #ff6666;
+}
+
+.value {
+    font-size: 14px;
+    color: #666;
+}
+
+/* 操作面板样式 */
+#action-panel {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.btn-task {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-task:hover {
+    background-color: #45a049;
+}
+
+.btn-task:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 事件日志样式 */
+#event-log {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#event-log h3 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.event-message {
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: #f9f9f9;
+    border-left: 3px solid #4CAF50;
+    font-size: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+    .container {
+        padding: 10px;
+    }
+    
+    #action-panel {
+        flex-direction: column;
+    }
+    
+    .btn-task {
+        width: 100%;
+    }
+}

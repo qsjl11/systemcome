@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修仙系统模拟器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div id="status-bars">
+            <div class="status-item">
+                <label>修为</label>
+                <div class="bar-container">
+                    <div class="bar cultivation" style="width: 0%"></div>
+                </div>
+                <span class="value">0</span>
+            </div>
+            <div class="status-item">
+                <label>信任</label>
+                <div class="bar-container">
+                    <div class="bar trust" style="width: 50%"></div>
+                </div>
+                <span class="value">50</span>
+            </div>
+            <div class="status-item">
+                <label>压力</label>
+                <div class="bar-container">
+                    <div class="bar stress" style="width: 0%"></div>
+                </div>
+                <span class="value">0</span>
+            </div>
+        </div>
+
+        <div id="action-panel">
+            <button class="btn-task" data-type="战斗">发布战斗任务</button>
+            <button class="btn-task" data-type="探索">发布探索任务</button>
+            <button class="btn-task" data-type="社交">发布社交任务</button>
+        </div>
+
+        <div id="event-log">
+            <h3>事件日志</h3>
+            <div class="event-messages"></div>
+        </div>
+    </div>
+
+    <script>
+        // 更新状态栏
+        function updateStatus() {
+            fetch('/get_status')
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelector('.cultivation').style.width = data.cultivation + '%';
+                    document.querySelector('.trust').style.width = data.trust + '%';
+                    document.querySelector('.stress').style.width = data.stress + '%';
+                    
+                    document.querySelectorAll('.status-item').forEach(item => {
+                        const type = item.querySelector('.bar').classList[1];
+                        item.querySelector('.value').textContent = data[type];
+                    });
+                });
+        }
+
+        // 发布任务
+        document.querySelectorAll('.btn-task').forEach(button => {
+            button.addEventListener('click', function() {
+                const type = this.dataset.type;
+                const formData = new FormData();
+                formData.append('type', type);
+
+                fetch('/issue_task', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    addEventMessage(data.message);
+                    updateStatus();
+                    // 获取AI响应
+                    return fetch('/get_ai_action');
+                })
+                .then(response => response.json())
+                .then(data => {
+                    addEventMessage(`主角决定: ${data.action} (${data.reason})`);
+                });
+            });
+        });
+
+        // 添加事件消息
+        function addEventMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'event-message';
+            messageDiv.textContent = message;
+            document.querySelector('.event-messages').prepend(messageDiv);
+        }
+
+        // 初始化
+        updateStatus();
+        // 定期更新状态
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html>

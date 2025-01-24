@@ -1,0 +1,166 @@
+### **MVP需求文档**
+版本号：0.2
+最后更新：2025-01-25
+
+---
+
+### **一、项目概览**
+#### 1.1 核心概念
+玩家扮演网文中的「系统」，通过发布任务/提供奖励间接引导主角成长。主角拥有自主AI决策能力，游戏世界通过事件池驱动动态演化。
+
+#### 1.2 技术栈
+- 后端框架：Python + Flask
+- 前端界面：HTML/CSS + JavaScript + AJAX
+- 数据存储：SQLite
+- AI支持：deepseek openai 1.0 接口兼容
+
+---
+
+### **二、功能需求**
+#### 2.1 核心模块
+| 模块 | 功能描述 | 接口示例 |
+|------|----------|----------|
+| **任务系统** | 发布/追踪/结算基础任务 | `/issue_task` POST请求，参数：type |
+| **状态管理** | 管理角色属性与状态更新 | `/get_status` GET请求 |
+| **事件系统** | 记录和展示系统事件 | 前端事件日志展示 |
+| **主角AI** | 自主决策与反馈 | `/get_ai_action` GET请求 |
+
+#### 2.2 数据模型
+```python
+# 数据库表结构
+class Character(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    cultivation = db.Column(db.Integer, default=0)  # 修为
+    trust = db.Column(db.Integer, default=50)       # 信任值
+    stress = db.Column(db.Integer, default=0)       # 压力值
+
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(20))  # 战斗/探索/社交
+    status = db.Column(db.String(10), default='pending') # pending/success/fail
+    reward = db.Column(db.Integer)
+```
+
+#### 2.3 交互流程
+```mermaid
+sequenceDiagram
+   玩家->>前端: 点击任务按钮
+   前端->>后端: POST /issue_task
+   后端->>数据库: 创建任务记录
+   后端->>数据库: 更新角色状态
+   后端-->>前端: 返回任务结果
+   前端->>后端: GET /get_ai_action
+   后端-->>前端: 返回AI决策
+   前端->>前端: 更新事件日志
+```
+
+---
+
+### **三、技术实现**
+#### 3.1 后端架构
+```bash
+/flask_app
+   ├── app.py              # 主程序
+   ├── requirements.txt    # 项目依赖
+   ├── templates/          # 网页模板
+   │   └── index.html     # 主界面
+   └── static/            # 静态资源
+       └── style.css      # 样式文件
+```
+
+#### 3.2 关键算法
+**主角决策逻辑**：
+```python
+def get_ai_action():
+    if character.stress > 70:
+        return random.choice(['逃避', '莽撞行动'])
+    elif character.cultivation < 50:
+        return '修炼'
+    else:
+        return '探索' if random.random() > 0.3 else '社交'
+```
+
+#### 3.3 接口定义
+| 端点 | 方法 | 参数 | 响应 |
+|------|------|------|------|
+| `/` | GET | - | 渲染主界面 |
+| `/get_status` | GET | - | 返回角色状态JSON |
+| `/issue_task` | POST | task_type | 返回任务结果JSON |
+| `/get_ai_action` | GET | - | 返回AI决策JSON |
+
+---
+
+### **四、界面规范**
+#### 4.1 布局设计
+```html
+<div class="container">
+    <div id="status-bars">
+        <div class="status-item">
+            <label>修为</label>
+            <div class="bar-container">
+                <div class="bar cultivation"></div>
+            </div>
+        </div>
+        <!-- 其他状态栏类似 -->
+    </div>
+
+    <div id="action-panel">
+        <button class="btn-task" data-type="战斗">发布战斗任务</button>
+        <button class="btn-task" data-type="探索">发布探索任务</button>
+        <button class="btn-task" data-type="社交">发布社交任务</button>
+    </div>
+
+    <div id="event-log">
+        <h3>事件日志</h3>
+        <div class="event-messages"></div>
+    </div>
+</div>
+```
+
+#### 4.2 样式要求
+```css
+/* 状态栏样式 */
+.bar {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+.cultivation { background: #ff9966; }
+.trust { background: #66ccff; }
+.stress { background: #ff6666; }
+
+/* 任务按钮样式 */
+.btn-task {
+    padding: 10px 20px;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-task:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+```
+
+---
+
+### **五、开发计划**
+#### 5.1 已完成功能
+- [x] 基础Flask应用搭建
+- [x] 数据库模型实现
+- [x] 核心API接口开发
+- [x] 前端界面实现
+- [x] 实时状态更新
+- [x] 事件日志系统
+
+#### 5.2 待开发功能
+- [ ] AI决策系统增强
+- [ ] 事件池系统实现
+- [ ] 剧情引擎开发
+- [ ] 更多任务类型
+- [ ] 成就系统
+
+---
+
+该文档反映了当前系统的实际实现状态，后续可根据需求继续扩展功能。
