@@ -70,15 +70,7 @@ sequenceDiagram
 
 #### 3.2 关键算法
 **主角决策逻辑**：
-```python
-def get_ai_action():
-    if character.stress > 70:
-        return random.choice(['逃避', '莽撞行动'])
-    elif character.cultivation < 50:
-        return '修炼'
-    else:
-        return '探索' if random.random() > 0.3 else '社交'
-```
+
 
 #### 3.3 接口定义
 | 端点 | 方法 | 参数 | 响应 |
@@ -87,61 +79,6 @@ def get_ai_action():
 | `/get_status` | GET | - | 返回角色状态JSON |
 | `/issue_task` | POST | task_type | 返回任务结果JSON |
 | `/get_ai_action` | GET | - | 返回AI决策JSON |
-
----
-
-### **四、界面规范**
-#### 4.1 布局设计
-```html
-<div class="container">
-    <div id="status-bars">
-        <div class="status-item">
-            <label>修为</label>
-            <div class="bar-container">
-                <div class="bar cultivation"></div>
-            </div>
-        </div>
-        <!-- 其他状态栏类似 -->
-    </div>
-
-    <div id="action-panel">
-        <button class="btn-task" data-type="战斗">发布战斗任务</button>
-        <button class="btn-task" data-type="探索">发布探索任务</button>
-        <button class="btn-task" data-type="社交">发布社交任务</button>
-    </div>
-
-    <div id="event-log">
-        <h3>事件日志</h3>
-        <div class="event-messages"></div>
-    </div>
-</div>
-```
-
-#### 4.2 样式要求
-```css
-/* 状态栏样式 */
-.bar {
-    height: 100%;
-    transition: width 0.5s ease;
-}
-
-.cultivation { background: #ff9966; }
-.trust { background: #66ccff; }
-.stress { background: #ff6666; }
-
-/* 任务按钮样式 */
-.btn-task {
-    padding: 10px 20px;
-    border-radius: 5px;
-    background-color: #4CAF50;
-    color: white;
-}
-
-.btn-task:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-```
 
 ---
 
@@ -162,5 +99,128 @@ def get_ai_action():
 - [ ] 成就系统
 
 ---
+### **需求文档更新说明**
+版本号：0.3 → 0.4
+更新日期：2025-01-25 → 2025-01-26
 
-该文档反映了当前系统的实际实现状态，后续可根据需求继续扩展功能。
+---
+
+### **一、主要修改内容**
+
+#### 1.1 新增存档系统
+```python
+# 数据模型新增
+class SaveSlot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    slot_num = db.Column(db.Integer, unique=True)  # 1-10存档位
+    save_time = db.Column(db.DateTime)
+    save_name = db.Column(db.String(50))
+    character_data = db.Column(db.Text)  # JSON序列化角色数据
+    task_data = db.Column(db.Text)       # JSON序列化任务数据
+    event_log = db.Column(db.Text)       # JSON事件日志
+```
+
+| 新增接口 | 方法 | 参数 | 响应 |
+|---------|------|------|------|
+| `/save_game` | POST | slot_num, save_name | 保存结果 |
+| `/load_game` | POST | slot_num | 加载存档数据 |
+| `/get_saves` | GET | - | 返回所有存档信息 |
+
+#### 1.2 决策闭环系统
+```mermaid
+graph TD
+    A[玩家输入] --> B{生成指定任务}
+    B -->|环境设定| D[修改世界参数]
+    E[事件池] --> F{触发条件}
+    F -->|时间推移| G[随机事件]
+    F -->|数值阈值| H[关键事件]
+    I[选项生成] --> J(A/B/C)
+    K[主角决策] --> L(性格权重)
+    L --> M[大模型推理]
+    M --> N[动作输出]
+```
+
+---
+
+### **二、后续开发计划**
+
+#### 2.1 数据库改造（1-2天）
+- 新增save_slot表结构
+- 添加剧情进度字段到Character表
+- 增加性格维度字段（刚正/中庸/灵活）
+
+#### 2.2 存档系统实现（3天）
+```bash
+/flask_app
+   ├── save_system.py        # 存档管理模块
+   └── utils
+       └── serializer.py    # 数据序列化工具
+```
+- 实现存档快照生成逻辑
+- 开发存档槽位管理界面
+- 添加自动存档机制（关键节点触发）
+
+#### 2.3 闭环系统开发（5-7天）
+| 模块 | 技术要点 |
+|------|----------|
+| **事件池** | 权重概率算法实现<br>事件冷却时间控制 |
+| **决策引擎** | 性格修正矩阵设计<br>deepseek-llm接口集成 |
+| **反馈系统** | 五维数值平衡公式<br>剧情进度通过deepseek-llm推演 |
+| **剧情检测** | 阈值触发器开发<br>关键节点衔接逻辑 |
+
+---
+
+### **三、系统架构调整**
+
+#### 3.1 新版数据流
+```mermaid
+flowchart LR
+    玩家操作 --> 存档系统
+    世界演化 --> 事件池
+    事件池 --> 决策引擎
+    决策引擎 --> 大模型
+    大模型 --> 剧情检测
+    剧情检测 --> 新事件注入
+```
+
+#### 3.2 数值平衡设计
+```python
+# 性格影响公式
+def personality_impact(action_options):
+    # 刚正型偏好战斗选项(+20%权重)
+    # 灵活型偏好探索选项(+15%成功率)
+    # 中庸型压力增长减缓(-30%)
+    return adjusted_actions
+```
+
+---
+
+### **四、风险与应对**
+
+| 风险点 | 应对方案 |
+|--------|----------|
+| 存档数据膨胀 | 采用zlib压缩序列化数据<br>设置自动清理旧存档机制 |
+| 决策延迟 | 大模型响应缓存设计<br>本地决策树fallback机制 |
+| 数值崩坏 | 引入变化量封顶规则<br>每日操作次数限制 |
+
+---
+
+### **五、版本计划更新**
+
+#### 5.1 待开发功能更新
+- [ ] 存档管理系统
+- [ ] 性格影响系统
+- [ ] 动态事件池
+- [ ] 剧情推进检测器
+- [ ] 决策引擎V2
+- [ ] 自动存档功能
+
+#### 5.2 优先级排序
+1. 存档系统基础功能（核心数据安全）
+2. 决策闭环中的大模型对接（核心玩法）
+3. 事件池与剧情检测（内容扩展基础）
+4. 前端适配（用户体验优化）
+
+---
+
+**注：本版文档生效后，需同步更新API文档并召开技术评审会**

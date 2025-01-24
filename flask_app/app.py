@@ -1,7 +1,9 @@
 from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 import random
 import os
+from save_system import create_save_data, restore_save_data
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///game.db'
@@ -14,6 +16,14 @@ class Character(db.Model):
     cultivation = db.Column(db.Integer, default=0)  # 修为
     trust = db.Column(db.Integer, default=50)       # 信任值
     stress = db.Column(db.Integer, default=0)       # 压力值
+
+class SaveSlot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    slot_num = db.Column(db.Integer, unique=True)  # 1-10存档位
+    save_time = db.Column(db.DateTime, default=datetime.utcnow)
+    save_name = db.Column(db.String(50))
+    character_data = db.Column(db.LargeBinary)  # 压缩的JSON数据
+    event_log = db.Column(db.Text)  # JSON事件日志
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -82,6 +92,69 @@ def get_ai_action():
         'action': action,
         'reason': f'当前状态: 修为{character.cultivation}, 压力{character.stress}'
     })
+
+@app.route('/save_game', methods=['POST'])
+def save_game():
+    slot_num = request.form.get('slot_num', type=int)
+    save_name = request.form.get('save_name', '')
+    
+    if not slot_num or not (1 <= slot_num <= 10):
+        return jsonify({'error': '无效的存档位置'}), 400
+        
+    character = Character.query.first()
+    tasks = Task.query.all()
+    events = []  # TODO: 实现事件日志系统
+    
+    # 创建存档数据
+    save_data = create_save_data(character, tasks, events)
+    
+    # 更新或创建存档
+    save_slot = SaveSlot.query.filter_by(slot_num=slot_num).first()
+    if not save_slot:
+        save_slot = SaveSlot(slot_num=slot_num)
+    
+    save_slot.save_name = save_name or f'存档 {slot_num}'
+    save_slot.save_time = datetime.utcnow()
+    save_slot.character_data = save_data
+    save_slot.event_log = '[]'  # TODO: 实现事件日志序列化
+    
+    db.session.add(save_slot)
+    db.session.commit()
+    
+    return jsonify({
+        'message': f'成功保存到存档位 {slot_num}',
+        'save_time': save_slot.save_time.isoformat()
+    })
+
+@app.route('/load_game', methods=['POST'])
+def load_game():
+    slot_num = request.form.get('slot_num', type=int)
+    
+    if not slot_num or not (1 <= slot_num <= 10):
+        return jsonify({'error': '无效的存档位置'}), 400
+        
+    save_slot = SaveSlot.query.filter_by(slot_num=slot_num).first()
+    if not save_slot:
+        return jsonify({'error': '存档不存在'}), 404
+        
+    character = Character.query.first()
+    if restore_save_data(character, save_slot.character_data):
+        db.session.commit()
+        return jsonify({
+            'message': f'成功读取存档 {slot_num}',
+            'save_time': save_slot.save_time.isoformat()
+        })
+    else:
+        return jsonify({'error': '存档数据损坏'}), 500
+
+@app.route('/get_saves')
+def get_saves():
+    saves = SaveSlot.query.all()
+    return jsonify([{
+        'slot_num': save.slot_num,
+        'save_name': save.save_name,
+        'save_time': save.save_time.isoformat()
+    } for save in saves])
 
 def init_db():
     with app.app_context():
