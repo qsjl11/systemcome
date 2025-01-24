@@ -8,27 +8,161 @@
 </head>
 <body>
     <div class="container">
-        <div id="status-bars">
-            <div class="status-item">
-                <label>修为</label>
-                <div class="bar-container">
-                    <div class="bar cultivation" style="width: 0%"></div>
+        <div class="status-section">
+            <h3>基础五维</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>气血</label>
+                    <div class="bar-container">
+                        <div class="bar vitality" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
                 </div>
-                <span class="value">0</span>
+                <div class="status-item">
+                    <label>灵力</label>
+                    <div class="bar-container">
+                        <div class="bar spiritual_power" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="status-item">
+                    <label>神识</label>
+                    <div class="bar-container">
+                        <div class="bar consciousness" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="status-item">
+                    <label>体魄</label>
+                    <div class="bar-container">
+                        <div class="bar physique" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="status-item">
+                    <label>气运</label>
+                    <div class="bar-container">
+                    <div class="bar fortune" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
             </div>
-            <div class="status-item">
-                <label>信任</label>
-                <div class="bar-container">
-                    <div class="bar trust" style="width: 50%"></div>
+        </div>
+
+        <div class="status-section">
+            <h3>境界信息</h3>
+            <div class="cultivation-info">
+                <div class="info-item">
+                    <label>当前境界:</label>
+                    <span id="cultivation-stage">-</span>
                 </div>
-                <span class="value">50</span>
+                <div class="info-item">
+                    <label>境界阶段:</label>
+                    <span id="cultivation-realm">-</span>
+                </div>
+                <div class="info-item">
+                    <label>破境概率:</label>
+                    <span id="breakthrough-chance">-</span>
+                </div>
             </div>
-            <div class="status-item">
-                <label>压力</label>
-                <div class="bar-container">
-                    <div class="bar stress" style="width: 0%"></div>
+        </div>
+
+        <div class="status-section">
+            <h3>灵根资质</h3>
+            <div class="affinities-grid">
+                <div class="affinity-item">
+                    <label>金灵根</label>
+                    <div class="bar-container">
+                        <div class="bar metal-affinity" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
                 </div>
-                <span class="value">0</span>
+                <div class="affinity-item">
+                    <label>木灵根</label>
+                    <div class="bar-container">
+                        <div class="bar wood-affinity" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="affinity-item">
+                    <label>水灵根</label>
+                    <div class="bar-container">
+                        <div class="bar water-affinity" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="affinity-item">
+                    <label>火灵根</label>
+                    <div class="bar-container">
+                        <div class="bar fire-affinity" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="affinity-item">
+                    <label>土灵根</label>
+                    <div class="bar-container">
+                        <div class="bar earth-affinity" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <h3>性格维度</h3>
+            <div class="personality-grid">
+                <div class="personality-item">
+                    <label>正邪倾向</label>
+                    <div class="bar-container">
+                        <div class="bar alignment" style="width: 50%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="personality-item">
+                    <label>决策风格</label>
+                    <div class="bar-container">
+                        <div class="bar decision-style" style="width: 50%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="personality-item">
+                    <label>社交模式</label>
+                    <div class="bar-container">
+                        <div class="bar social-mode" style="width: 50%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="personality-item">
+                    <label>机缘敏感</label>
+                    <div class="bar-container">
+                    <div class="bar fortune-sensitivity" style="width: 50%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
+                <div class="personality-item">
+                    <label>道心类型:</label>
+                    <span id="dao-heart">求知</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <h3>其他属性</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>信任</label>
+                    <div class="bar-container">
+                        <div class="bar trust" style="width: 50%"></div>
+                    </div>
+                    <span class="value">50</span>
+                </div>
+                <div class="status-item">
+                    <label>压力</label>
+                    <div class="bar-container">
+                        <div class="bar stress" style="width: 0%"></div>
+                    </div>
+                    <span class="value">0</span>
+                </div>
             </div>
         </div>
 
@@ -139,13 +273,66 @@
             fetch('/get_status')
                 .then(response => response.json())
                 .then(data => {
-                    document.querySelector('.cultivation').style.width = data.cultivation + '%';
-                    document.querySelector('.trust').style.width = data.trust + '%';
-                    document.querySelector('.stress').style.width = data.stress + '%';
-                    
-                    document.querySelectorAll('.status-item').forEach(item => {
-                        const type = item.querySelector('.bar').classList[1];
-                        item.querySelector('.value').textContent = data[type];
+                    // 更新基础五维
+            ['vitality', 'spiritual_power', 'consciousness', 'physique', 'fortune'].forEach(attr => {
+                        const bar = document.querySelector(`.bar.${attr}`);
+                        const value = document.querySelector(`.bar.${attr}`).parentElement.parentElement.querySelector('.value');
+                        if (bar && value) {
+                            const percent = (data[attr] / (attr === 'vitality' || attr === 'spiritual_power' ? 1000 : 100)) * 100;
+                            bar.style.width = `${Math.min(100, percent)}%`;
+                            value.textContent = data[attr];
+                        }
+                    });
+
+                    // 更新境界信息
+                    document.getElementById('cultivation-stage').textContent = data.cultivation_stage;
+                    document.getElementById('cultivation-realm').textContent = data.cultivation_realm;
+                    document.getElementById('breakthrough-chance').textContent = 
+                        (data.breakthrough_chance * 100).toFixed(1) + '%';
+
+                    // 更新灵根资质
+                    Object.entries(data.affinities).forEach(([type, value]) => {
+                        const bar = document.querySelector(`.bar.${type}-affinity`);
+                        const valueSpan = bar.parentElement.parentElement.querySelector('.value');
+                        if (bar && valueSpan) {
+                            bar.style.width = `${value * 100}%`;
+                            valueSpan.textContent = (value * 100).toFixed(1);
+                        }
+                    });
+
+                    // 更新性格维度
+                    const personalityBars = {
+                        'alignment': [-100, 100],
+                        'decision-style': [0, 100],
+                        'social-mode': [0, 100],
+                        'fortune-sensitivity': [0, 100]
+                    };
+
+                    Object.entries(data.personality).forEach(([type, value]) => {
+                        if (type === 'dao_heart') {
+                            document.getElementById('dao-heart').textContent = value;
+                            return;
+                        }
+
+                        const cssType = type.replace(/_/g, '-');
+                        const bar = document.querySelector(`.bar.${cssType}`);
+                        const valueSpan = bar.parentElement.parentElement.querySelector('.value');
+                        if (bar && valueSpan) {
+                            const [min, max] = personalityBars[cssType];
+                            const percent = ((value - min) / (max - min)) * 100;
+                            bar.style.width = `${percent}%`;
+                            valueSpan.textContent = value.toFixed(1);
+                        }
+                    });
+
+                    // 更新原有属性
+                    ['trust', 'stress'].forEach(attr => {
+                        const bar = document.querySelector(`.bar.${attr}`);
+                        const value = bar.parentElement.parentElement.querySelector('.value');
+                        if (bar && value) {
+                            bar.style.width = `${data[attr]}%`;
+                            value.textContent = data[attr];
+                        }
                     });
                 });
         }

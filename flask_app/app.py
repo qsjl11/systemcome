@@ -13,7 +13,33 @@ db = SQLAlchemy(app)
 # 数据模型
 class Character(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    cultivation = db.Column(db.Integer, default=0)  # 修为
+    # 基础五维属性
+    vitality = db.Column(db.Integer, default=100)    # 气血
+    spiritual_power = db.Column(db.Integer, default=100)  # 灵力
+    consciousness = db.Column(db.Integer, default=1)   # 神识
+    physique = db.Column(db.Integer, default=1)       # 体魄
+    fortune = db.Column(db.Integer, default=1)        # 气运
+    
+    # 境界系统
+    cultivation_stage = db.Column(db.Integer, default=0)  # 境界阶段
+    cultivation_realm = db.Column(db.String(10), default='初期')  # 小境界
+    breakthrough_chance = db.Column(db.Float, default=0.0)  # 破境成功率
+    
+    # 灵根资质
+    metal_affinity = db.Column(db.Float, default=0.0)  # 金灵根
+    wood_affinity = db.Column(db.Float, default=0.0)   # 木灵根
+    water_affinity = db.Column(db.Float, default=0.0)  # 水灵根
+    fire_affinity = db.Column(db.Float, default=0.0)   # 火灵根
+    earth_affinity = db.Column(db.Float, default=0.0)  # 土灵根
+    
+    # 性格维度
+    alignment = db.Column(db.Float, default=0.0)       # 正邪倾向 -100到100
+    decision_style = db.Column(db.Float, default=50.0)  # 决策风格 0到100
+    social_mode = db.Column(db.Float, default=50.0)     # 社交模式 0到100
+    fortune_sensitivity = db.Column(db.Float, default=50.0) # 机缘敏感 0到100
+    dao_heart = db.Column(db.String(20), default='求知')  # 道心类型
+    
+    # 原有属性
     trust = db.Column(db.Integer, default=50)       # 信任值
     stress = db.Column(db.Integer, default=0)       # 压力值
 
@@ -44,8 +70,48 @@ def get_status():
         db.session.add(character)
         db.session.commit()
     
+    # 获取境界名称
+    CULTIVATION_STAGES = {
+        0: "凡人",
+        1: "炼气期",
+        3: "筑基期",
+        5: "金丹期",
+        8: "元婴期"
+    }
+    current_stage = CULTIVATION_STAGES.get(character.cultivation_stage, "未知境界")
+    
     return jsonify({
-        'cultivation': character.cultivation,
+        # 基础五维
+        'vitality': character.vitality,
+        'spiritual_power': character.spiritual_power,
+        'consciousness': character.consciousness,
+        'physique': character.physique,
+        'fortune': character.fortune,
+        
+        # 境界信息
+        'cultivation_stage': current_stage,
+        'cultivation_realm': character.cultivation_realm,
+        'breakthrough_chance': character.breakthrough_chance,
+        
+        # 灵根资质
+        'affinities': {
+            'metal': character.metal_affinity,
+            'wood': character.wood_affinity,
+            'water': character.water_affinity,
+            'fire': character.fire_affinity,
+            'earth': character.earth_affinity
+        },
+        
+        # 性格维度
+        'personality': {
+            'alignment': character.alignment,
+            'decision_style': character.decision_style,
+            'social_mode': character.social_mode,
+            'fortune_sensitivity': character.fortune_sensitivity,
+            'dao_heart': character.dao_heart
+        },
+        
+        # 原有属性
         'trust': character.trust,
         'stress': character.stress
     })
@@ -138,7 +204,9 @@ def load_game():
         return jsonify({'error': '存档不存在'}), 404
         
     character = Character.query.first()
-    if restore_save_data(character, save_slot.character_data):
+    events = []  # TODO: 实现事件日志系统
+    
+    if restore_save_data(character, Task, events, save_slot.character_data, db):
         db.session.commit()
         return jsonify({
             'message': f'成功读取存档 {slot_num}',

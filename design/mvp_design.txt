@@ -184,14 +184,7 @@ flowchart LR
 ```
 
 #### 3.2 数值平衡设计
-```python
-# 性格影响公式
-def personality_impact(action_options):
-    # 刚正型偏好战斗选项(+20%权重)
-    # 灵活型偏好探索选项(+15%成功率)
-    # 中庸型压力增长减缓(-30%)
-    return adjusted_actions
-```
+
 
 ---
 
@@ -200,7 +193,6 @@ def personality_impact(action_options):
 | 风险点 | 应对方案 |
 |--------|----------|
 | 存档数据膨胀 | 采用zlib压缩序列化数据<br>设置自动清理旧存档机制 |
-| 决策延迟 | 大模型响应缓存设计<br>本地决策树fallback机制 |
 | 数值崩坏 | 引入变化量封顶规则<br>每日操作次数限制 |
 
 ---
@@ -223,4 +215,190 @@ def personality_impact(action_options):
 
 ---
 
-**注：本版文档生效后，需同步更新API文档并召开技术评审会**
+### **人物属性与性格系统优化方案**
+（整合修仙体系与复杂性格模型）
+
+---
+
+### **一、修仙属性体系重构**
+
+#### 1.1 基础五维属性
+| 属性 | 说明 | 数值范围 | 影响领域 |
+|------|------|----------|----------|
+| **气血** | 生命强度 | 100-∞ | 战斗存活/受伤恢复 |
+| **灵力** | 法力储备 | 100-∞ | 施法消耗/功法威力 |
+| **神识** | 精神强度 | 1-100 | 探查范围/抗幻术 |
+| **体魄** | 肉体强度 | 1-100 | 物理防御/负重 |
+| **气运** | 天命机缘 | 1-100 | 奇遇概率/危机化解 |
+
+#### 1.2 境界系统
+```python
+# 新增境界模型
+CULTIVATION_STAGES = {
+    0: ("凡人", "气血+10%"),
+    1: ("炼气期", "灵力上限+100"),
+    3: ("筑基期", "神识成长+2/级"),
+    5: ("金丹期", "可御剑飞行"),
+    8: ("元婴期", "气运固化")
+}
+
+class CultivationProgress(db.Model):
+    stage = db.Column(db.Integer)  # 境界阶段
+    realm = db.Column(db.String(20)) # 小境界(初期/中期/后期)
+    breakthrough_chance = db.Column(db.Float)  # 破境成功率
+```
+
+#### 1.3 灵根与功法
+```mermaid
+graph TD
+    A[灵根资质] --> B(金系灵根)
+    A --> C(木系灵根)
+    A --> D(水系灵根)
+    A --> E(火系灵根)
+    A --> F(土系灵根)
+    G[功法匹配度] --> H(基础加成+20%)
+    G --> I(走火入魔率-15%)
+```
+
+---
+
+### **二、多维性格系统**
+
+#### 2.1 性格维度矩阵
+| 维度 | 说明 | 区间 | 典型角色 |
+|------|------|------|----------|
+| **正邪倾向** | -100(魔道) ~ +100(正道) | [-100,100] | 韩立(-20) vs 叶凡(+60) |
+| **决策风格** | 0(谨慎) ~ 100(激进) | [0,100] | 李长寿(30) vs 荒天帝(90) |
+| **社交模式** | 0(独行) ~ 100(合群) | [0,100] | 王林(15) vs 方源(40) |
+| **机缘敏感** | 0(务实) ~ 100(赌性) | [0,100] | 孟浩(85) vs 白小纯(95) |
+| **道心类型** | 枚举值(守护/复仇/求知等) | - | 罗峰(守护) vs 楚枫(复仇) |
+
+#### 2.2 性格影响规则
+```python
+def calculate_action_weight(options):
+    # 示例：战斗选项权重计算
+    base_weight = options['combat']
+    
+    # 正邪倾向修正（魔道角色+20%战斗倾向）
+    if character.alignment < -50:
+        base_weight *= 1.2
+        
+    # 决策风格修正（激进风格+30%高收益选项）
+    if character.decision_style > 70:
+        base_weight += (risk_reward * 0.3)
+        
+    # 道心类型修正（复仇道心对仇敌+50%伤害）
+    if character.dao_heart == 'revenge':
+        base_weight *= 1.5 if enemy.is_nemesis else 1.0
+        
+    return normalized_weight
+```
+
+---
+
+### **三、状态可视化方案**
+
+#### 3.1 角色面板设计
+```javascript
+// 前端示例数据结构
+const characterSheet = {
+  cultivation: {
+    stage: "金丹初期",
+    nextBreakthrough: "72%",
+    meridians: ["任脉贯通", "督脉阻塞"]
+  },
+  attributes: {
+    qi: { value: 8500, max: 12000 },
+    spirit: { value: 4200, regen: "85/s" }
+  },
+  karma: {
+    mortalEnemies: ["血刀老祖", "合欢宗"],
+    benefactors: ["玄天剑派"]
+  }
+}
+```
+
+#### 3.2 数值关系公式
+```
+境界压制系数 = (己方境界阶段 - 敌方境界阶段) * 0.15
+有效灵力 = 基础灵力 × (1 + 功法匹配度) × (1 + 灵根补正)
+渡劫成功率 = 神识×0.3 + 体魄×0.2 + 气运×0.5 + 丹药加成
+```
+
+---
+
+### **四、开发实施计划**
+
+#### 4.1 数据模型升级（2天）
+```python
+# 新版Character模型
+class Character(db.Model):
+    # 境界系统
+    cultivation_stage = db.Column(db.Integer)
+    cultivation_realm = db.Column(db.String(10))
+    
+    # 五维基础
+    vitality = db.Column(db.Integer)  # 气血
+    spiritual_power = db.Column(db.Integer) # 灵力
+    
+    # 灵根资质
+    metal_affinity = db.Column(db.Float)  # 金
+    wood_affinity = db.Column(db.Float)   # 木
+    
+    # 性格维度
+    alignment = db.Column(db.Float)       # 正邪倾向
+    decision_style = db.Column(db.Float)  # 决策风格
+```
+
+#### 4.2 系统关联改造
+1. **任务系统适配**：增加境界要求字段
+2. **战斗计算模块**：接入五维属性公式
+3. **AI决策引擎**：整合性格影响算法
+4. **奇遇事件池**：绑定气运值与机缘敏感度
+
+#### 4.3 前端呈现优化
+- 境界突破特效动画
+- 灵根资质雷达图
+- 性格维度玫瑰图
+- 实时属性变化曲线
+
+---
+
+### **五、设计验证用例**
+
+#### 用例1：魔道激进型角色
+```json
+{
+  "alignment": -80,
+  "decision_style": 90,
+  "cultivation": "元婴中期",
+  "meridians": ["血煞魔脉激活"],
+  "karma": {
+    "mortalEnemies": ["正道联盟"],
+    "secretArts": ["血神子"]
+  }
+}
+```
+**预期行为**：优先选择高风险高回报选项，对正道NPC初始好感-50%
+
+#### 用例2：稳健苟道流角色
+```json
+{
+  "alignment": 30,
+  "decision_style": 20,
+  "cultivation": "筑基大圆满",
+  "talent": "九窍玲珑心",
+  "equipment": ["千年龟甲×3"]
+}
+```
+**预期行为**：遇到危险时80%概率选择撤退，洞府防御阵法强度+200%
+
+---
+
+### **六、平衡性注意事项**
+1. 境界提升需满足三维阈值（例：筑基要求气血>5000）
+2. 性格维度动态变化机制（重大事件影响倾向）
+3. 气运值衰减规则（过度依赖机缘会导致气运下滑）
+4. 功法冲突检测（正邪心法不可兼修）
+
+---
