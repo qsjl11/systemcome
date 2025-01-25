@@ -1,6 +1,6 @@
 ### **MVP需求文档**
-版本号：0.2
-最后更新：2025-01-25
+版本号：0.5
+最后更新：2025-01-26
 
 ---
 
@@ -24,6 +24,7 @@
 | **状态管理** | 管理角色属性与状态更新 | `/get_status` GET请求 |
 | **事件系统** | 记录和展示系统事件 | 前端事件日志展示 |
 | **主角AI** | 自主决策与反馈 | `/get_ai_action` GET请求 |
+| **存档系统** | 管理游戏存档与读取 | `/save_game` POST请求 |
 
 #### 2.2 数据模型
 ```python
@@ -33,12 +34,27 @@ class Character(db.Model):
     cultivation = db.Column(db.Integer, default=0)  # 修为
     trust = db.Column(db.Integer, default=50)       # 信任值
     stress = db.Column(db.Integer, default=0)       # 压力值
+    
+    # 新增性格维度
+    alignment = db.Column(db.Float)       # 正邪倾向
+    decision_style = db.Column(db.Float)  # 决策风格
+    social_mode = db.Column(db.Float)     # 社交模式
+    luck_sensitivity = db.Column(db.Float) # 机缘敏感
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     type = db.Column(db.String(20))  # 战斗/探索/社交
     status = db.Column(db.String(10), default='pending') # pending/success/fail
     reward = db.Column(db.Integer)
+
+class SaveSlot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    slot_num = db.Column(db.Integer, unique=True)  # 1-10存档位
+    save_time = db.Column(db.DateTime)
+    save_name = db.Column(db.String(50))
+    character_data = db.Column(db.Text)  # JSON序列化角色数据
+    task_data = db.Column(db.Text)       # JSON序列化任务数据
+    event_log = db.Column(db.Text)       # JSON事件日志
 ```
 
 #### 2.3 交互流程
@@ -62,15 +78,22 @@ sequenceDiagram
 /flask_app
    ├── app.py              # 主程序
    ├── requirements.txt    # 项目依赖
-   ├── templates/          # 网页模板
-   │   └── index.html     # 主界面
-   └── static/            # 静态资源
-       └── style.css      # 样式文件
+   ├── core/              # 核心模块
+   │   ├── models/       # 数据模型
+   │   ├── services/     # 业务逻辑
+   │   └── utils/        # 工具函数
+   ├── templates/         # 网页模板
+   │   └── index.html    # 主界面
+   └── static/           # 静态资源
+       └── style.css     # 样式文件
 ```
 
 #### 3.2 关键算法
 **主角决策逻辑**：
-
+1. 基于性格维度计算行动权重
+2. 结合当前状态和环境信息
+3. 通过LLM生成合理的决策选项
+4. 应用性格修正进行最终选择
 
 #### 3.3 接口定义
 | 端点 | 方法 | 参数 | 响应 |
@@ -79,595 +102,116 @@ sequenceDiagram
 | `/get_status` | GET | - | 返回角色状态JSON |
 | `/issue_task` | POST | task_type | 返回任务结果JSON |
 | `/get_ai_action` | GET | - | 返回AI决策JSON |
+| `/save_game` | POST | slot_num, save_name | 保存结果 |
+| `/load_game` | POST | slot_num | 加载存档数据 |
 
 ---
 
-### **五、开发计划**
-#### 5.1 已完成功能
+### **四、开发进度**
+#### 4.1 已完成功能
 - [x] 基础Flask应用搭建
 - [x] 数据库模型实现
 - [x] 核心API接口开发
 - [x] 前端界面实现
 - [x] 实时状态更新
 - [x] 事件日志系统
+- [x] 存档系统基础架构
+- [x] 性格系统数据模型
+- [x] LLM服务集成
 
-#### 5.2 待开发功能
-- [ ] AI决策系统增强
-- [ ] 事件池系统实现
+#### 4.2 待开发功能
+- [ ] 性格影响系统实现
+- [ ] 动态事件池完善
 - [ ] 剧情引擎开发
 - [ ] 更多任务类型
 - [ ] 成就系统
+- [ ] 存档管理界面
+- [ ] 自动存档功能
+- [ ] 决策引擎V2
+- [ ] 剧情推进检测器
 
----
-### **需求文档更新说明**
-版本号：0.3 → 0.4
-更新日期：2025-01-25 → 2025-01-26
-
----
-
-### **一、主要修改内容**
-
-#### 1.1 新增存档系统
-```python
-# 数据模型新增
-class SaveSlot(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    slot_num = db.Column(db.Integer, unique=True)  # 1-10存档位
-    save_time = db.Column(db.DateTime)
-    save_name = db.Column(db.String(50))
-    character_data = db.Column(db.Text)  # JSON序列化角色数据
-    task_data = db.Column(db.Text)       # JSON序列化任务数据
-    event_log = db.Column(db.Text)       # JSON事件日志
-```
-
-| 新增接口 | 方法 | 参数 | 响应 |
-|---------|------|------|------|
-| `/save_game` | POST | slot_num, save_name | 保存结果 |
-| `/load_game` | POST | slot_num | 加载存档数据 |
-| `/get_saves` | GET | - | 返回所有存档信息 |
-
-#### 1.2 决策闭环系统
-```mermaid
-graph TD
-    A[玩家输入] --> B{生成指定任务}
-    B -->|环境设定| D[修改世界参数]
-    E[事件池] --> F{触发条件}
-    F -->|时间推移| G[随机事件]
-    F -->|数值阈值| H[关键事件]
-    I[选项生成] --> J(A/B/C)
-    K[主角决策] --> L(性格权重)
-    L --> M[大模型推理]
-    M --> N[动作输出]
-```
+#### 4.3 优先级排序
+1. 性格影响系统（核心玩法）
+2. 动态事件池（内容生成）
+3. 存档管理界面（用户体验）
+4. 决策引擎升级（AI交互）
+5. 剧情系统（游戏深度）
 
 ---
 
-### **二、后续开发计划**
-
-#### 2.1 数据库改造（1-2天）
-- 新增save_slot表结构
-- 添加剧情进度字段到Character表
-- 增加性格维度字段（刚正/中庸/灵活）
-
-#### 2.2 存档系统实现（3天）
-```bash
-/flask_app
-   ├── save_system.py        # 存档管理模块
-   └── utils
-       └── serializer.py    # 数据序列化工具
-```
-- 实现存档快照生成逻辑
-- 开发存档槽位管理界面
-- 添加自动存档机制（关键节点触发）
-
-#### 2.3 闭环系统开发（5-7天）
-| 模块 | 技术要点 |
-|------|----------|
-| **事件池** | 权重概率算法实现<br>事件冷却时间控制 |
-| **决策引擎** | 性格修正矩阵设计<br>deepseek-llm接口集成 |
-| **反馈系统** | 五维数值平衡公式<br>剧情进度通过deepseek-llm推演 |
-| **剧情检测** | 阈值触发器开发<br>关键节点衔接逻辑 |
-
----
-
-### **三、系统架构调整**
-
-#### 3.1 新版数据流
-```mermaid
-flowchart LR
-    玩家操作 --> 存档系统
-    世界演化 --> 事件池
-    事件池 --> 决策引擎
-    决策引擎 --> 大模型
-    大模型 --> 剧情检测
-    剧情检测 --> 新事件注入
-```
-
-#### 3.2 数值平衡设计
-
-
----
-
-### **四、风险与应对**
+### **五、风险与应对**
 
 | 风险点 | 应对方案 |
 |--------|----------|
 | 存档数据膨胀 | 采用zlib压缩序列化数据<br>设置自动清理旧存档机制 |
 | 数值崩坏 | 引入变化量封顶规则<br>每日操作次数限制 |
+| LLM响应延迟 | 实现本地缓存机制<br>预生成常用响应 |
+| 性格系统失衡 | 动态调整权重系数<br>增加平衡性测试用例 |
 
 ---
 
-### **五、版本计划更新**
+### **六、后续迭代计划**
 
-#### 5.1 待开发功能更新
-- [ ] 存档管理系统
-- [ ] 性格影响系统
-- [ ] 动态事件池
-- [ ] 剧情推进检测器
-- [ ] 决策引擎V2
-- [ ] 自动存档功能
+#### 6.1 短期目标（1-2周）
+1. 完善性格影响系统
+2. 实现基础事件池
+3. 开发存档管理界面
+4. 补充单元测试
 
-#### 5.2 优先级排序
-1. 存档系统基础功能（核心数据安全）
-2. 决策闭环中的大模型对接（核心玩法）
-3. 事件池与剧情检测（内容扩展基础）
-4. 前端适配（用户体验优化）
+#### 6.2 中期目标（1个月）
+1. 升级决策引擎
+2. 丰富任务类型
+3. 优化用户界面
+4. 完善错误处理
 
----
-
-### **人物属性与性格系统优化方案**
-（整合修仙体系与复杂性格模型）
-
----
-
-### **一、修仙属性体系重构**
-
-#### 1.1 基础五维属性
-| 属性 | 说明 | 数值范围 | 影响领域 |
-|------|------|----------|----------|
-| **气血** | 生命强度 | 100-∞ | 战斗存活/受伤恢复 |
-| **灵力** | 法力储备 | 100-∞ | 施法消耗/功法威力 |
-| **神识** | 精神强度 | 1-100 | 探查范围/抗幻术 |
-| **体魄** | 肉体强度 | 1-100 | 物理防御/负重 |
-| **气运** | 天命机缘 | 1-100 | 奇遇概率/危机化解 |
-
-#### 1.2 境界系统
-```python
-# 新增境界模型
-CULTIVATION_STAGES = {
-    0: ("凡人", "气血+10%"),
-    1: ("炼气期", "灵力上限+100"),
-    3: ("筑基期", "神识成长+2/级"),
-    5: ("金丹期", "可御剑飞行"),
-    8: ("元婴期", "气运固化")
-}
-
-class CultivationProgress(db.Model):
-    stage = db.Column(db.Integer)  # 境界阶段
-    realm = db.Column(db.String(20)) # 小境界(初期/中期/后期)
-    breakthrough_chance = db.Column(db.Float)  # 破境成功率
-```
-
-#### 1.3 灵根与功法
-```mermaid
-graph TD
-    A[灵根资质] --> B(金系灵根)
-    A --> C(木系灵根)
-    A --> D(水系灵根)
-    A --> E(火系灵根)
-    A --> F(土系灵根)
-    G[功法匹配度] --> H(基础加成+20%)
-    G --> I(走火入魔率-15%)
-```
+#### 6.3 长期目标（3个月）
+1. 实现完整剧情系统
+2. 添加成就系统
+3. 优化性能
+4. 扩展游戏内容
 
 ---
 
-### **二、多维性格系统**
+### **七、设计原则**
 
-#### 2.1 性格维度矩阵
-| 维度 | 说明 | 区间 | 典型角色 |
-|------|------|------|----------|
-| **正邪倾向** | -100(魔道) ~ +100(正道) | [-100,100] | 韩立(-20) vs 叶凡(+60) |
-| **决策风格** | 0(谨慎) ~ 100(激进) | [0,100] | 李长寿(30) vs 荒天帝(90) |
-| **社交模式** | 0(独行) ~ 100(合群) | [0,100] | 王林(15) vs 方源(40) |
-| **机缘敏感** | 0(务实) ~ 100(赌性) | [0,100] | 孟浩(85) vs 白小纯(95) |
-| **道心类型** | 枚举值(守护/复仇/求知等) | - | 罗峰(守护) vs 楚枫(复仇) |
+1. **最小修改原则**：
+   - 优先采用小规模、可控的修改
+   - 避免影响现有稳定功能
+   - 增量式开发和测试
 
-#### 2.2 性格影响规则
-```python
-def calculate_action_weight(options):
-    # 示例：战斗选项权重计算
-    base_weight = options['combat']
-    
-    # 正邪倾向修正（魔道角色+20%战斗倾向）
-    if character.alignment < -50:
-        base_weight *= 1.2
-        
-    # 决策风格修正（激进风格+30%高收益选项）
-    if character.decision_style > 70:
-        base_weight += (risk_reward * 0.3)
-        
-    # 道心类型修正（复仇道心对仇敌+50%伤害）
-    if character.dao_heart == 'revenge':
-        base_weight *= 1.5 if enemy.is_nemesis else 1.0
-        
-    return normalized_weight
-```
+2. **系统稳定性**：
+   - 完善的错误处理机制
+   - 定期数据备份
+   - 性能监控和优化
+
+3. **用户体验**：
+   - 清晰的界面反馈
+   - 合理的操作流程
+   - 完整的新手引导
+
+4. **可扩展性**：
+   - 模块化设计
+   - 标准化接口
+   - 灵活的配置系统
 
 ---
 
-### **三、状态可视化方案**
+### **八、更新日志**
 
-#### 3.1 角色面板设计
-```javascript
-// 前端示例数据结构
-const characterSheet = {
-  cultivation: {
-    stage: "金丹初期",
-    nextBreakthrough: "72%",
-    meridians: ["任脉贯通", "督脉阻塞"]
-  },
-  attributes: {
-    qi: { value: 8500, max: 12000 },
-    spirit: { value: 4200, regen: "85/s" }
-  },
-  karma: {
-    mortalEnemies: ["血刀老祖", "合欢宗"],
-    benefactors: ["玄天剑派"]
-  }
-}
-```
+#### v0.5 (2025-01-26)
+- 更新了已完成功能列表
+- 调整了开发优先级
+- 完善了风险应对方案
+- 新增了后续迭代计划
+- 补充了设计原则说明
 
-#### 3.2 数值关系公式
-```
-境界压制系数 = (己方境界阶段 - 敌方境界阶段) * 0.15
-有效灵力 = 基础灵力 × (1 + 功法匹配度) × (1 + 灵根补正)
-渡劫成功率 = 神识×0.3 + 体魄×0.2 + 气运×0.5 + 丹药加成
-```
+#### v0.4 (2025-01-25)
+- 新增存档系统设计
+- 新增性格系统设计
+- 新增事件池系统设计
+- 新增决策闭环系统设计
 
----
-
-### **四、开发实施计划**
-
-#### 4.1 数据模型升级（2天）
-```python
-# 新版Character模型
-class Character(db.Model):
-    # 境界系统
-    cultivation_stage = db.Column(db.Integer)
-    cultivation_realm = db.Column(db.String(10))
-    
-    # 五维基础
-    vitality = db.Column(db.Integer)  # 气血
-    spiritual_power = db.Column(db.Integer) # 灵力
-    
-    # 灵根资质
-    metal_affinity = db.Column(db.Float)  # 金
-    wood_affinity = db.Column(db.Float)   # 木
-    
-    # 性格维度
-    alignment = db.Column(db.Float)       # 正邪倾向
-    decision_style = db.Column(db.Float)  # 决策风格
-```
-
-#### 4.2 系统关联改造
-1. **任务系统适配**：增加境界要求字段
-2. **战斗计算模块**：接入五维属性公式
-3. **AI决策引擎**：整合性格影响算法
-4. **奇遇事件池**：绑定气运值与机缘敏感度
-
-#### 4.3 前端呈现优化
-- 境界突破特效动画
-- 灵根资质雷达图
-- 性格维度玫瑰图
-- 实时属性变化曲线
-
----
-
-### **五、设计验证用例**
-
-#### 用例1：魔道激进型角色
-```json
-{
-  "alignment": -80,
-  "decision_style": 90,
-  "cultivation": "元婴中期",
-  "meridians": ["血煞魔脉激活"],
-  "karma": {
-    "mortalEnemies": ["正道联盟"],
-    "secretArts": ["血神子"]
-  }
-}
-```
-**预期行为**：优先选择高风险高回报选项，对正道NPC初始好感-50%
-
-#### 用例2：稳健苟道流角色
-```json
-{
-  "alignment": 30,
-  "decision_style": 20,
-  "cultivation": "筑基大圆满",
-  "talent": "九窍玲珑心",
-  "equipment": ["千年龟甲×3"]
-}
-```
-**预期行为**：遇到危险时80%概率选择撤退，洞府防御阵法强度+200%
-
----
-
-### **六、平衡性注意事项**
-1. 境界提升需满足三维阈值（例：筑基要求气血>5000）
-2. 性格维度动态变化机制（重大事件影响倾向）
-3. 气运值衰减规则（过度依赖机缘会导致气运下滑）
-4. 功法冲突检测（正邪心法不可兼修）
-
----
-### **动态事件池详细设计方案**
-版本号：0.4 → 0.5  
-更新日期：2025-01-26 → 2025-01-27  
-
----
-
-### **一、事件池架构设计**
-
-#### 1.1 数据结构模型
-```python
-class DynamicEventPool(db.Model):
-    event_id = db.Column(db.String(32), primary_key=True)  # 事件唯一标识
-    event_type = db.Column(db.String(20))  # 奇遇/劫难/日常/因果
-    trigger_conditions = db.Column(db.Text)  # JSON触发条件
-    base_weight = db.Column(db.Float)       # 基础权重
-    cooldown = db.Column(db.Integer)        # 冷却时间(天)
-    chain_events = db.Column(db.Text)       # 后续连锁事件ID列表
-    ai_template = db.Column(db.Text)        # 大模型生成模板
-
-class ActiveEvent(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.String(32))
-    choices = db.Column(db.Text)            # JSON选项数据
-    start_time = db.Column(db.DateTime)     # 事件开始时间
-    status = db.Column(db.String(10))       # pending/resolved
-```
-
-#### 1.2 事件触发流程图
-```mermaid
-graph TD
-    A[每日刷新] --> B{环境检测}
-    B -->|境界变化| C[解锁新事件层级]
-    B -->|地点移动| D[加载地域事件]
-    E[权重计算] --> F(基础权重 × 性格修正)
-    F --> G(境界系数 × 气运补正)
-    G --> H[最终概率]
-    I[事件执行] --> J{选项处理}
-    J -->|选择A| K[触发奖励/惩罚]
-    J -->|选择B| L[改变后续事件链]
-```
-
----
-
-### **二、事件类型与机制**
-
-#### 2.1 核心事件分类
-| 类型 | 触发条件 | 典型事件 | 特殊机制 |
-|------|----------|----------|----------|
-| **修炼奇遇** | 闭关修炼时 | 顿悟突破/心魔入侵 | 成功率受神识影响 |
-| **探索冒险** | 移动至新区域 | 古修士洞府/妖兽巢穴 | 根骨决定资源获取 |
-| **因果纠缠** | 社交行为累计 | 旧敌复仇/恩人求助 | 道心类型修正结果 |
-| **天道考验** | 境界突破前 | 雷劫/问心幻境 | 气运值动态波动 |
-| **命运转折** | 关键剧情节点 | 神器认主/宗门覆灭 | 仅触发一次 |
-
-#### 2.2 动态权值算法
-```python
-def calculate_event_weight(event, character):
-    # 基础权重
-    weight = event.base_weight
-    
-    # 境界修正（高阶事件权重衰减）
-    if event.min_stage > character.stage:
-        weight *= 0.2
-    
-    # 性格影响（激进风格增加危险事件权重）
-    weight *= (1 + character.decision_style * 0.005)
-    
-    # 气运修正（气运>80获得正向事件+30%）
-    if character.karma > 80 and event.event_type == "positive":
-        weight *= 1.3
-        
-    # 冷却衰减（冷却期内事件权重递减）
-    if event.last_trigger and within_cooldown():
-        weight *= (1 - (passed_days/event.cooldown))
-        
-    return max(weight, 0)
-```
-
----
-
-### **三、事件生成规则**
-
-#### 3.1 分层事件池结构
-```json
-{
-  "炼气期": {
-    "日常事件": 40%,
-    "小奇遇": 30%,
-    "修炼事件": 20%,
-    "因果事件": 10%
-  },
-  "金丹期": {
-    "秘境探索": 35%,
-    "雷劫事件": 25%,
-    "宗门事务": 20%,
-    "因果轮回": 20%
-  }
-}
-```
-
-#### 3.2 连锁反应机制
-```mermaid
-graph LR
-    A[古洞探秘] -->|失败| B[身中奇毒]
-    B --> C{解毒方式}
-    C -->|求医问药| D[结识医仙]
-    C -->|强行逼毒| E[损伤根基]
-    D --> F[获得医道传承]
-    E --> G[境界停滞]
-```
-
----
-
-### **四、技术实现方案**
-
-#### 4.1 后端处理流程
-```python
-# 每日事件刷新逻辑
-def daily_event_refresh():
-    # 清除过期事件
-    clear_expired_events()
-    
-    # 计算可用事件池
-    available_events = filter_events_by_condition()
-    
-    # 动态权重计算
-    weighted_pool = [(e, calculate_weight(e)) for e in available_events]
-    
-    # 轮盘赌选择机制
-    selected_event = roulette_selection(weighted_pool)
-    
-    # 生成AI驱动选项
-    options = generate_ai_options(selected_event.ai_template)
-    
-    # 存入激活事件表
-    create_active_event(selected_event, options)
-```
-
-#### 4.2 大模型集成接口
-```javascript
-// 选项生成请求示例
-{
-  "template": "conflict_resolution",
-  "params": {
-    "location": "幽冥谷",
-    "enemy": "血煞宗长老",
-    "character_trait": "刚正不阿"
-  }
-}
-
-// 响应数据示例
-{
-  "options": [
-    {"text": "正面对决", "risk": 0.7, "reward": "声望提升"},
-    {"text": "智取周旋", "cost": "消耗符箓×3"},
-    {"text": "暂时退避", "effect": "压力值-20"}
-  ]
-}
-```
-
----
-
-### **五、前端交互设计**
-
-#### 5.1 事件展示面板
-```javascript
-class EventCard extends React.Component {
-  render() {
-    return (
-      <div className="event-card">
-        <h3>{this.props.title}</h3>
-        <div className="event-tags">
-          <span className="type-tag">{this.props.type}</span>
-          <span className="risk-level">{renderRiskStars(this.props.risk)}</span>
-        </div>
-        <p>{this.props.description}</p>
-        <div className="decision-grid">
-          {this.props.options.map(option => 
-            <DecisionButton 
-              key={option.id}
-              onClick={() => handleChoice(option)}
-              data={option}
-            />
-          )}
-        </div>
-        <div className="status-preview">
-          <span>气运波动预测: {this.props.karmaImpact}%</span>
-          <ProgressBar value={this.props.successRate} />
-        </div>
-      </div>
-    );
-  }
-}
-```
-
-#### 5.2 可视化关联系统
-```mermaid
-graph TD
-    当前事件 -->|成功| 正向影响链
-    当前事件 -->|失败| 负向影响链
-    正向影响链 --> 解锁[新功法]
-    正向影响链 --> 提升[宗门地位]
-    负向影响链 --> 结仇[魔道势力]
-    负向影响链 --> 触发[心魔劫]
-```
-
----
-
-### **六、验证测试用例**
-
-#### 用例1：稳健型修士日常
-```json
-{
-  "character": {
-    "stage": "筑基中期",
-    "alignment": 60,
-    "decision_style": 30
-  },
-  "generated_event": {
-    "type": "日常修炼",
-    "options": [
-      {"text": "巩固根基", "effect": "体魄+5"},
-      {"text": "钻研丹道", "cost": "灵草×10"},
-      {"text": "指导后辈", "reward": "声望+20"}
-    ]
-  },
-  "expected": "高概率选择巩固根基选项"
-}
-```
-
-#### 用例2：魔道修士因果事件
-```json
-{
-  "character": {
-    "stage": "金丹后期",
-    "alignment": -90,
-    "karma": ["屠灭青云门"]
-  },
-  "trigger_event": "旧敌复仇",
-  "dynamic_elements": [
-    "复仇者修为: 金丹中期→后期",
-    "出现心魔幻象干扰",
-    "战场环境: 血煞之气弥漫"
-  ],
-  "expected_damage": "比正常值高30%"
-}
-```
-
----
-
-### **七、平衡性控制**
-
-#### 7.1 调控机制
-- **疲劳度系统**：连续触发同类型事件降低50%权重
-- **气运守恒**：重大奇遇后3日内气运值衰减加速
-- **境界压制**：高阶修士介入低阶事件概率<5%
-- **因果承负**：杀孽值过高必触发天罚事件
-
-#### 7.2 监控指标
-| 指标 | 健康范围 | 调整策略 |
-|------|----------|----------|
-| 每日事件数 | 2-4次 | 动态调整刷新率 |
-| 正向/负向比 | 4:6 → 6:4 | 修改基础权重 |
-| 选项选择率 | 无选项>60% | 增加AI选项差异 |
-| 连锁触发深度 | ≤3层 | 添加衰减系数 |
-
----
-
-本方案实施后，事件系统将形成有机生态，需配合埋点数据分析系统持续优化。建议采用分阶段上线策略，优先实装基础事件类型，逐步增加复杂因果链事件。
+#### v0.3 (2025-01-24)
+- 初始版本
+- 基础功能规划
+- 核心模块设计
