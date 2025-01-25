@@ -68,51 +68,18 @@ body {
     font-size: 0.8em;
 }
 
-.bar-container {
-    background-color: #eee;
-    height: 12px;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 2px;
-}
-
-/* 进度条样式 */
-.bar {
-    height: 100%;
-    transition: width 0.5s ease;
-}
-
-/* 基础五维颜色 */
-.vitality { background: #ff6b6b; }        /* 红色 - 气血 */
-.spiritual_power { background: #4ecdc4; }  /* 青色 - 灵力 */
-.consciousness { background: #a8e6cf; }    /* 薄荷绿 - 神识 */
-.physique { background: #ff9f43; }         /* 橙色 - 体魄 */
-.destiny { background: #ffd93d; }          /* 金色 - 气运 */
-
-/* 灵根颜色 */
-.metal-affinity { background: #dfe6e9; }   /* 银色 - 金 */
-.wood-affinity { background: #6ab04c; }    /* 绿色 - 木 */
-.water-affinity { background: #48dbfb; }   /* 蓝色 - 水 */
-.fire-affinity { background: #ff7979; }    /* 红色 - 火 */
-.earth-affinity { background: #cd853f; }   /* 棕色 - 土 */
-
-/* 性格维度颜色 */
-.alignment { background: linear-gradient(to right, #ff6b6b, #4ecdc4); }      /* 正邪 */
-.decision-style { background: #a8e6cf; }    /* 决策 */
-.social-mode { background: #ffd93d; }       /* 社交 */
-.luck-sensitivity { background: #6c5ce7; }  /* 机缘 */
-
-/* 原有属性颜色 */
-.trust { background: #66ccff; }
-.stress { background: #ff6666; }
-
 /* 数值显示 */
 .value {
-    font-size: 0.75em;
-    color: #666;
+    font-size: 0.9em;
+    color: #333;
+    font-weight: bold;
     display: inline-block;
-    min-width: 30px;
+    min-width: 40px;
     text-align: right;
+    padding: 2px 6px;
+    background: #f8f9fa;
+    border-radius: 3px;
+    margin-left: 4px;
 }
 
 /* 境界信息样式 */
