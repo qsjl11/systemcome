@@ -23,23 +23,12 @@ class Character:
             with open(story_path, 'r', encoding='utf-8') as f:
                 init_data = json.load(f)
                 self.logger.info("成功加载角色初始化配置")
-                self.profile = init_data.get("profile", {
-                    "name": "主角",
-                    "level": 1,
-                    "skills": [],
-                    "items": []
-                })
+                self.profile = init_data.get("profile")
                 self.thoughts = init_data.get("initial_thoughts", "初次进入这个世界，充满好奇与期待。")
         except Exception as e:
             self.logger.error(f"加载角色初始化配置失败: {e}")
-            self.profile = {
-                "name": "主角",
-                "level": 1,
-                "skills": [],
-                "items": []
-            }
-            self.thoughts = "初次进入这个世界，充满好奇与期待。"
-    
+            raise e
+
     async def generate_actions(self) -> List[str]:
         self.logger.info("生成行动方案")
         """生成三个候选行动方案
