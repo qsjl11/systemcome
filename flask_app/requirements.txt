@@ -3,3 +3,6 @@ flask-sqlalchemy
 openai
 python-dotenv
 aiohttp
+pytest
+pytest-mock
+pytest-cov

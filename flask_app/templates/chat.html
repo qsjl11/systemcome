@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物流手册问答</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- 左侧对话管理 -->
+        <div class="sidebar" id="sidebar">
+            <button class="new-chat" onclick="createNewChat()">
+                <span>新对话</span>
+            </button>
+            <div class="conversations" id="conversationList">
+                <!-- 对话列表将通过JS动态添加 -->
+            </div>
+        </div>
+
+        <!-- 主对话区域 -->
+        <div class="main">
+    <div class="chat-container" id="chatContainer">
+        <!-- 对话内容将通过JS动态添加 -->
+        <div class="message bot-message" style="display: none;" id="messageTemplate">
+            <div class="avatar">A</div>
+            <div class="message-content">
+                <div class="content"></div>
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+            
+            <!-- 输入区域 -->
+            <div class="input-container">
+                <button class="menu-toggle" id="menuToggle">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="1.5em" width="1.5em">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <textarea 
+                    id="userInput" 
+                    placeholder="提问...如锂电池的运输规定"
+                    rows="1"
+                    onInput="this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'"
+                ></textarea>
+                <button id="sendButton" onclick="sendMessage()">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
