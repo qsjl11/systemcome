@@ -42,7 +42,7 @@ class World:
         }
         self.history.append(event)
         
-        # 更新当前状态
+        # 更新当前状态LLM
         self.current_state["last_change"] = {
             "description": change_prompt,
             "timestamp": timestamp

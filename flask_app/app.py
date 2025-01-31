@@ -70,7 +70,7 @@ async def chat_stream():
                 response = await system.advance_story()
                 logger.info("故事演进")
 
-            elif message == '/thoughts':
+            elif message == '；':
                 response = system.character.get_current_thoughts()
                 logger.info("获取主角心理活动成功")
 
