@@ -1,0 +1,17 @@
+{
+    "name": "新世界",
+    "description": "这是一个充满魔法和科技的奇幻世界",
+    "current_state": {
+        "time": "黎明时分",
+        "location": "初始之城",
+        "environment": "和平安宁",
+        "background": "这是一个魔法与科技共存的世界，人们利用两种力量共同创造文明。初始之城是新手冒险者的起点，这里有完善的基础设施和友好的居民。"
+    },
+    "initial_events": [
+        {
+            "type": "world_init",
+            "description": "世界初始化完成",
+            "timestamp": "2025-01-31T00:00:00"
+        }
+    ]
+}

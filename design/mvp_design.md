@@ -38,7 +38,7 @@
 
 ### 二、核心流程修正
 1. 特殊指令处理：
-```python
+```
 async def handle_command(command: str):
     # 故事演进指令
     if command.startswith("/story"):
@@ -128,7 +128,7 @@ sequenceDiagram
 
 ### 三、关键设计说明
 1. **动态能量计算**：
-```python
+```
 async def modify_world(self, modification: str):
     energy_cost = await LLMService.calculate_energy_cost(
         action_type="modify",
@@ -140,7 +140,7 @@ async def modify_world(self, modification: str):
 ```
 
 2. **一致性维护实现**：
-```python
+```
 class World:
     async def apply_change(self, change_prompt: str):
         self.history.append(new_state)
@@ -148,7 +148,7 @@ class World:
 ```
 
 3. **任务影响机制**：
-```python
+```
 class Character:
     async def generate_actions(self):
         task_context = "\n".join([t.description for t in self.pending_tasks])
