@@ -5,6 +5,7 @@ from .task import Task
 from .llm_service import LLMService
 from .logger import setup_logger
 
+
 class Character:
     def __init__(self, llm_service: LLMService):
         self.logger = setup_logger('Character')
@@ -16,7 +17,7 @@ class Character:
         """
         self.llm_service = llm_service
         self.pending_tasks: List[Task] = []
-        
+
         # 读取初始化配置
         story_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'story', 'character_init.json')
         try:
@@ -42,12 +43,12 @@ class Character:
             "thoughts": self.thoughts,
             "active_tasks": []
         }
-        
+
         # 注入任务影响
         self.logger.debug(f"当前待处理任务数: {len(self.pending_tasks)}")
         for task in self.pending_tasks:
             context = task.apply_influence(context)
-        
+
         # 生成行动方案
         prompt = f"""
         [角色档案]
@@ -62,17 +63,17 @@ class Character:
         请生成三个候选行动方案，考虑任务影响但不强制服从。每个方案需要包含行动描述和预期结果。
         
         返回格式：
-        1. [行动方案1]
-        2. [行动方案2]
-        3. [行动方案3]
+        [行动方案1]=xxxx
+        [行动方案2]=yyyy
+        [行动方案3]=zzzzz
         """
-        
+
         response = await self.llm_service.generate_response(prompt)
         # 解析响应为行动列表
-        actions = [line.strip()[3:] for line in response.strip().split('\n') if line.strip()]
-        self.logger.debug(f"生成的行动方案: {actions[:3]}")
+        actions = [line.split("]=")[1] for line in response.strip().split('\n') if "[行动方案" in line]
+        self.logger.debug(f"生成的行动方案: {actions}")
         return actions[:3]  # 确保只返回3个方案
-    
+
     async def receive_task(self, task: Task):
         self.logger.info(f"接收新任务: {task.description}")
         """接收任务并存储
@@ -83,7 +84,7 @@ class Character:
         self.pending_tasks.append(task)
         # 更新心理活动以反映新任务
         await self._update_thoughts(f"收到新任务：{task.description}")
-    
+
     def get_current_thoughts(self) -> str:
         self.logger.debug(f"获取当前心理活动: {self.thoughts}")
         """获取当前心理活动
@@ -92,12 +93,12 @@ class Character:
             str: 当前心理活动描述
         """
         return self.thoughts
-    
+
     async def update(self):
         self.logger.info("更新角色状态")
         """更新角色状态（当世界发生变化时调用）"""
         await self._update_thoughts("感知到世界发生了变化...")
-    
+
     async def _update_thoughts(self, trigger: str):
         self.logger.debug(f"更新心理活动 - 触发: {trigger}")
         """更新心理活动
@@ -117,6 +118,6 @@ class Character:
         
         请生成一段新的心理活动描述（100字以内）：
         """
-        
+
         self.thoughts = await self.llm_service.generate_response(prompt)
         self.logger.debug(f"新的心理活动: {self.thoughts}")

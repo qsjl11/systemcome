@@ -74,6 +74,10 @@ class System:
         """
 
         response = await self.llm_service.generate_response(prompt)
+
+        # 保存查询结果到世界历史
+        self.world.save_query_result(query, response)
+
         return response
 
     async def create_task(self, description: str) -> Task:
@@ -113,7 +117,8 @@ class System:
         # 构建对话上下文
         context = {
             "message": message,
-            "character": self.character.profile,
+            "character": str(self.character.profile),
+            "tasks": [str(i) for i in self.character.pending_tasks],
             "thoughts": self.character.get_current_thoughts(),
             "dialogue_history": self._format_recent_history(200),  # 获取最近5轮对话
             "dialogue_summaries": "\n".join(self.dialogue_summaries[-3:])  # 最近3个总结
@@ -121,14 +126,17 @@ class System:
 
         # 生成回复
         prompt = f"""
+        [历史对话总结]
+        {context['dialogue_summaries']}
+        
         [角色设定]
         {context['character']}
         
         [当前心理状态]
         {context['thoughts']}
         
-        [历史对话总结]
-        {context['dialogue_summaries']}
+        [当前任务]
+        {context['tasks']}
         
         [最近对话记录]
         {context['dialogue_history']}
@@ -167,7 +175,7 @@ class System:
 
         return response_text
 
-    async def _format_recent_history(self, count: int) -> str:
+    def _format_recent_history(self, count: int) -> str:
         """格式化最近的对话历史
 
         Args:
@@ -208,7 +216,7 @@ class System:
             self.dialogue_history = []
             self.logger.info("已清除对话历史并保存总结")
 
-    async def advance_story(self) -> str:
+    async def advance_story(self):
         self.logger.info("触发故事演进")
         """触发自主故事演进
 
@@ -232,6 +240,11 @@ class System:
         2. {actions[1]}
         3. {actions[2]}
         
+        根据以上信息进行行动选择，并描述其展开过程和后续世界的变化，要注意：
+        1. 不要回复选择行动1、2、3，而是直接描述行动内容。
+        2. 以第三人称视角描述故事，主角名称应当偶尔直接提及，以确保玩家能理解主人公是谁。
+        3. 风格上要符合当前世界设定，保持优秀网络小说的描写风格，如果有需要，有适当的心理、环境和他人互动等描写。
+        
         请选择一个最合理的行动方案，并描述其展开过程（200字以内）：
         """
 
@@ -242,7 +255,7 @@ class System:
         self.world.log_history(story_progress)
 
         # 更新主角心理状态
-        await self.character._update_thoughts("故事发生了新的发展...")
+        await self.character._update_thoughts(f"故事发生了新的发展...{story_progress}")
 
         self.logger.info("故事演进完成")
         self.logger.debug(f"故事进展: {story_progress}")

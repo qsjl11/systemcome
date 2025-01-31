@@ -79,25 +79,31 @@ async def chat_stream():
                 response = f"当前系统能量：{system.energy}"
             else:
                 logger.warning(f"收到未知指令: {message}")
+                response = "未知指令"
         else:
             # 支持普通对话
             response = await system.communicate(message)
         
-        # 模拟流式响应
+
+        # 流式返回
         def generate():
-            # 这里我们简单地一次性返回完整响应
-            # 后续可以实现真正的流式生成
+            # 普通响应转换为流式
             yield 'data: {}\n\n'.format(json.dumps({'content': response}))
             yield 'data: {}\n\n'.format(json.dumps({'conversation_id': ""}))
-            yield 'data: {}\n\n'.format(json.dumps({'content': '[DONE]'}))  # The answer is over, pushing [DONE]
-
+            yield 'data: {}\n\n'.format(json.dumps({'content': '[DONE]'}))
 
         logger.info("开始流式响应")
         return Response(generate(), mimetype='text/event-stream')
     
     except Exception as e:
         logger.error(f"处理流式对话请求时出错: {str(e)}", exc_info=True)
-        return Response(f"data: Error: {str(e)}\n\n", mimetype='text/event-stream')
+        def generate():
+            # 普通响应转换为流式
+            yield f"data: Error: {str(e)}\n\n"
+            yield 'data: {}\n\n'.format(json.dumps({'conversation_id': ""}))
+            yield 'data: {}\n\n'.format(json.dumps({'content': '[DONE]'}))
+        return Response(generate(), mimetype='text/event-stream')
+
 
 if __name__ == '__main__':
     logger.info("启动Web服务器")
