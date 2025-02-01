@@ -6,6 +6,7 @@ class TaskStatus(Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    COMPLETED = "completed"
 
 class Task:
     def __init__(self, description: str, reward: str, influence: float = 1.0):
@@ -22,6 +23,7 @@ class Task:
         self.status = TaskStatus.PENDING
         self.influence = influence
         self.reward = reward
+        self.reward_applied = False
     
     def apply_influence(self, context: Dict) -> Dict:
         self.logger.debug(f"应用任务影响 - 状态: {self.status.value}")
@@ -56,5 +58,29 @@ class Task:
         self.logger.info(f"任务被拒绝 - 描述: {self.description}")
         self.status = TaskStatus.REJECTED
     
+    def complete(self):
+        """完成任务"""
+        self.logger.info(f"任务已完成 - 描述: {self.description}")
+        self.status = TaskStatus.COMPLETED
+    
+    def apply_reward(self, character) -> dict:
+        """应用任务奖励到角色属性
+
+        Args:
+            character: 角色对象
+
+        Returns:
+            dict: 更新后的属性变化
+        """
+        if self.status != TaskStatus.COMPLETED or self.reward_applied:
+            return {}
+            
+        self.logger.info(f"应用任务奖励 - 奖励: {self.reward}")
+        self.reward_applied = True
+        return {
+            "task_completed": self.description,
+            "reward_gained": self.reward
+        }
+    
     def __str__(self) -> str:
-        return f"Task(description='{self.description}', status={self.status.value}, reward='{self.reward}')"
+        return f"任务描述: {self.description}, 状态: {self.status.value}, 奖励: {self.reward}"

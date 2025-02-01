@@ -3,6 +3,7 @@ import asyncio
 import os
 from .logger import setup_logger
 
+
 class LLMService:
     def __init__(self):
         self.logger = setup_logger('LLMService')
@@ -13,7 +14,7 @@ class LLMService:
         self.model = os.getenv('MODEL_NAME', 'deepseek-chat')
         self.max_retries = 3
         self.retry_delay = 1  # 初始重试延迟(秒)
-    
+
     async def generate_response(self, prompt):
         retries = 0
         while retries < self.max_retries:
@@ -29,7 +30,7 @@ class LLMService:
                     self.logger.error(f"LLM API Error after {retries} retries: {e}")
                     raise
                 await asyncio.sleep(self.retry_delay * (2 ** (retries - 1)))  # 指数退避
-    
+
     async def calculate_energy_cost(self, action_type: str, context: str) -> float:
         """计算能量消耗
 
@@ -41,7 +42,7 @@ class LLMService:
             float: 消耗的能量值
         """
         self.logger.info(f"计算能量消耗 - 动作类型: {action_type}")
-        
+
         # 根据action_type和context的复杂度计算能量消耗
         prompt = f"""
         请根据以下动作类型和上下文计算能量消耗（返回一个1-100的数值）：
@@ -59,7 +60,75 @@ class LLMService:
         except Exception as e:
             self.logger.error(f"能量消耗计算失败: {e}")
             return 10.0
-    
+
+    async def detect_task(self, message: str) -> tuple[bool, str, str]:
+        """从对话中检测任务
+
+        Args:
+            message: 对话内容
+
+        Returns:
+            tuple[bool, str]: (是否包含任务, 任务描述)
+        """
+        self.logger.info("检测对话中的任务")
+        prompt = f"""
+        请分析以下对话内容，判断是否包含任务和对应的奖励：
+        {message}
+
+        如果包含任务，请提取出任务描述；如果不包含任务，请返回"无任务"。
+        注意：任务通常包含明确的目标、要求或请求。
+
+        仅返回以下两种格式之一：
+        任务：[任务描述]
+        奖励：[奖励描述]
+        或
+        无任务
+        """
+
+        try:
+            response = await self.generate_response(prompt)
+            if response.startswith("任务："):
+                task_desc = response.split("任务：")[1].split("奖励：")[0].strip()
+                reward_des = response.split("奖励：")[1].strip()
+                self.logger.debug(f"检测到任务: {task_desc}->{reward_des}")
+                return True, task_desc, reward_des
+            return False, "", ""
+        except Exception as e:
+            self.logger.error(f"任务检测失败: {e}")
+            return False, "", ""
+
+    async def check_task_status(self, task_desc: str, context: str) -> bool:
+        """检查任务是否完成
+
+        Args:
+            task_desc: 任务描述
+            context: 相关上下文（对话内容或故事进展）
+
+        Returns:
+            bool: 任务是否完成
+        """
+        self.logger.info(f"检查任务状态 - 任务: {task_desc}")
+        prompt = f"""
+        请判断以下任务是否已经完成：
+
+        [任务描述]
+        {task_desc}
+
+        [相关上下文]
+        {context}
+
+        请仅返回"已完成"或"未完成"：
+        """
+
+        try:
+            response = await self.generate_response(prompt)
+            is_completed = "已完成" in response
+            self.logger.debug(f"任务状态检查结果: {'已完成' if is_completed else '未完成'}")
+            return is_completed
+        except Exception as e:
+            self.logger.error(f"任务状态检查失败: {e}")
+            return False
+
     async def format_task(self, task_description: str) -> tuple[str, str]:
         """格式化任务描述和奖励
 
@@ -71,7 +140,7 @@ class LLMService:
         """
         self.logger.info("格式化任务描述")
         self.logger.debug(f"原始任务描述: {task_description}")
-        
+
         prompt = f"""
         请将以下任务描述格式化为标准格式，并生成合适的奖励：
         {task_description}
