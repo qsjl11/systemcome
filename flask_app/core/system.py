@@ -2,9 +2,9 @@ from typing import Optional
 import json
 from .world import World
 from .character import Character
-from .task import Task, TaskStatus
 from .llm_service import LLMService
 from .logger import setup_logger
+import re
 
 
 class System:
@@ -20,31 +20,75 @@ class System:
         self.dialogue_history = []  # 对话历史记录
         self.dialogue_summaries = []  # 对话总结记录
 
-    async def modify_world(self, modification: str) -> str:
-        self.logger.info(f"尝试修改世界状态: {modification}")
-        """修改世界状态
-
+    async def modify_state(self, modification: str) -> str:
+        """修改世界或角色状态
+        
         Args:
             modification: 修改描述
-
+            
         Returns:
             str: 修改结果
         """
-        # 计算能量消耗
-        energy_cost = await self.llm_service.calculate_energy_cost(
-            action_type="modify",
-            context=f"修改内容：{modification}\n当前能量：{self.energy}"
-        )
+        # 构建提示以判断修改类型和计算能量
+        prompt = f"""
+[修改内容]
+{modification}
 
+[当前能量]
+{self.energy}
+
+请分析这个修改内容属于哪种类型，并计算所需能量。要求：
+1. 分析修改内容是针对世界状态还是角色状态
+2. 计算这个修改所需的能量值（范围1-100）
+3. 发布任务是给主角发布任务，因此类型为character
+
+请严格按以下格式回复：
+[类型]：world或character
+[能量]：数值"""
+
+        # 获取类型判断和能量计算
+        response = await self.llm_service.generate_response(prompt, use_small_model=True)
+
+        # 解析响应
+        modification_type = ""
+        energy_cost = 0
+
+        for line in response.split("\n"):
+            if "[类型]：" in line:
+                if "world" in line:
+                    modification_type = "world"
+                else:
+                    modification_type = "character"
+            elif "[能量]：" in line:
+                s = re.sub(r"[^\d.]", "", line)
+                if s != "":
+                    energy_cost = float(s)
+                else:
+                    energy_cost = 1.0
+
+        self.logger.info(f"修改类型: {modification_type}, 所需能量: {energy_cost}")
+
+        # 检查能量是否足够
         if self.energy < energy_cost:
             self.logger.warning(f"能量不足 - 需要: {energy_cost}, 当前: {self.energy}")
             return f"能量不足！需要{energy_cost}点能量，当前剩余{self.energy}点能量。"
 
         # 扣除能量并执行修改
         self.energy -= energy_cost
-        result = self.world.apply_change(modification)
-        self.logger.info(f"世界状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
-        return f"{result}\n消耗了{energy_cost}点能量，剩余{self.energy}点能量。"
+
+        try:
+            if modification_type == "world":
+                result = self.world.apply_change(modification)
+                self.logger.info(f"世界状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
+            else:  # character
+                await self.character.update_attributes(modification)
+                result = "角色状态已更新"
+                self.logger.info(f"角色状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
+
+            return f"{result}\n消耗了{energy_cost}点能量，剩余{self.energy}点能量。"
+        except Exception as e:
+            self.logger.error(f"修改失败: {e}")
+            return f"修改失败：{str(e)}"
 
     async def confirm_world_state(self, query: str) -> str:
         self.logger.info(f"查询世界状态: {query}")
@@ -60,8 +104,13 @@ class System:
         world_current_context = self.world.get_current_context()
         self.logger.debug(f"获取到的世界状态: {world_current_context}")
 
+        character_info = self.character.get_character_info_str()
+        self.logger.debug(f"获取到的角色状态: {character_info}")
+
         # 生成查询响应
         prompt = f"""
+{character_info}        
+
 {world_current_context}
 
 [玩家查询内容]
@@ -82,27 +131,6 @@ class System:
 
         return response
 
-    async def create_task(self, formatted_desc: str, formatted_reward: str) -> Task:
-        self.logger.info(f"创建新任务 - 描述: {formatted_desc}->{formatted_reward}")
-        """创建新任务
-
-        Args:
-            description: 任务描述
-            reward: 可选的奖励描述
-
-        Returns:
-            Task: 创建的任务对象
-        """
-
-        # 创建任务对象
-        task = Task(formatted_desc, formatted_reward)
-
-        # 将任务发送给主角
-        await self.character.receive_task(task)
-
-        self.logger.info(f"任务创建完成 - ID: {id(task)}")
-        return task
-
     async def check_task_completion(self, context: str):
         """检查任务完成状态
 
@@ -110,13 +138,15 @@ class System:
             context: 相关上下文（对话内容或故事进展）
         """
         self.logger.info("检查任务完成状态")
-        for task in self.character.pending_tasks:
-            if task.status == TaskStatus.ACCEPTED:
-                if await self.llm_service.check_task_status(task.description, context):
-                    task.complete()
-                    changes = task.apply_reward(self.character)
-                    await self.character.update_attributes(changes)
-                    self.logger.info(f"任务已完成并应用奖励: {task.description}")
+
+        is_completed, response = await self.llm_service.check_task_status(self.character.get_character_info_str(),
+                                                                          context)
+        if is_completed:
+            self.logger.info(f"任务已完成并应用奖励: {response}")
+            return response
+        else:
+            self.logger.info("任务未完成")
+            return ""
 
     async def communicate(self, message: str) -> str:
         self.logger.info(f"与主角对话: {message}")
@@ -128,25 +158,15 @@ class System:
         Returns:
             str: 主角的回复
         """
-        # 检测是否包含任务
-        has_task, task_desc, reward_desc = await self.llm_service.detect_task(message)
-        if has_task:
-            self.logger.info(f"从对话中检测到任务: {task_desc}->{reward_desc}")
-            await self.create_task(task_desc, reward_desc)
 
         # 构建对话上下文
         context = {
             "message": message,
             "character": str(self.character.profile),
             "thoughts": self.character.get_current_thoughts(),
-            "active_tasks": [],  # 此处留空初始化，由后续注入任务信息
             "dialogue_history": self._format_recent_history(200),  # 获取最近5轮对话
             "dialogue_summaries": "\n".join(self.dialogue_summaries[-3:])  # 最近3个总结
         }
-
-        self.logger.debug(f"当前待处理任务数: {len(self.character.pending_tasks)}")
-        for task in self.character.pending_tasks:
-            context = task.apply_influence(context)
 
         # 生成回复
         prompt = f"""
@@ -158,9 +178,6 @@ class System:
 
 [当前心理状态]
 {context['thoughts']}
-
-[当前任务]
-{context['active_tasks']}
 
 [最近对话记录]
 {context['dialogue_history']}
@@ -174,6 +191,7 @@ class System:
 3. 展现角色当前的心理状态
 4. 确保回复的连贯性和自然度
 5. 同时更新角色的心理状态
+6. 当系统提出能力和物品给予的时候，角色不会立刻获得，而是后续通过命令或任务给予。
 
 以如下格式回复：
 [回复内容]：XXXXX
@@ -201,20 +219,20 @@ class System:
 
         response_text = response_text
 
-        # 检查任务完成情况
-        await self.check_task_completion(f"对话内容：{message}\n角色回复：{response_text}")
-
         return response_text
 
-    async def advance_story(self):
+    async def advance_story(self, time_span_str):
         self.logger.info("触发故事演进")
         """触发自主故事演进
 
         Returns:
             str: 故事演进结果
         """
+        if time_span_str == "":
+            time_span_str = "10分钟"
+
         # 生成行动方案
-        actions = await self.character.generate_actions()
+        actions = await self.character.generate_actions(time_span_str)
 
         # 构建故事演进提示
         world_current_context = self.world.get_current_context(show_hide_info=True)
@@ -230,24 +248,33 @@ class System:
 2. {actions[1]}
 3. {actions[2]}
 
+
 根据以上信息进行行动选择，并描述其展开过程和后续世界的变化，要注意：
 1. 不要回复选择行动1、2、3，而是直接描述行动内容。
 2. 以第三人称视角描述故事，主角名称应当偶尔直接提及，以确保玩家能理解主人公是谁。
 3. 风格上要符合当前世界设定，保持优秀网络小说的描写风格，如果有需要，有适当的心理、环境和他人互动等描写。
+4. 描述其展开过程和后续世界的变化前进时间：{time_span_str}
+5. 要严格遵循隐藏故事大纲，如果有冲突，以隐藏故事大纲为准。
+6. 要给出时间后，故事开展的具体的时间和日期和地点。
 
 请选择一个最合理的行动方案，并描述其展开过程（200字以内）："""
+
+        self.logger.info(f"故事演进提示: {prompt}")
 
         # 生成故事发展
         story_progress = await self.llm_service.generate_response(prompt)
 
         # 记录到世界历史
-        self.world.log_history(story_progress)
+        self.world.log_history(story_progress.replace("\n", " "))
 
         # 更新主角心理状态
-        await self.character._update_thoughts(f"世界发生了新的发展...{story_progress}")
+        await self.character.update_thoughts(f"世界发生了新的发展...{story_progress}")
 
         # 检查任务完成情况
-        await self.check_task_completion(story_progress)
+        task_result = await self.check_task_completion(story_progress)
+
+        if task_result != "":
+            story_progress += f"\n\n【任务完成情况，请根据情况发放奖励】\n{task_result}"
 
         self.logger.info("故事演进完成")
         self.logger.debug(f"故事进展: {story_progress}")
@@ -276,14 +303,14 @@ class System:
             return "暂无对话记录"
 
         prompt = f"""
-        请总结以下对话的主要内容（100字以内）：
-        
-        {self._format_recent_history(len(self.dialogue_history))}
-        
-        请提供简洁的总结：
+请总结以下对话的主要内容（100字以内）：
+
+{self._format_recent_history(len(self.dialogue_history))}
+
+请提供简洁的总结：
         """
 
-        summary = await self.llm_service.generate_response(prompt)
+        summary = await self.llm_service.generate_response(prompt, use_small_model=True)
         self.dialogue_summaries.append(summary)
         return summary
 
@@ -331,37 +358,9 @@ class System:
                 "system": "[生成场景描述]",
                 "character": "[场景描述，非角色回答]: " + description
             })
+            self.world.history.append(f"场景描述：{description}")
             self.logger.info("场景描述生成成功")
             return description
         except Exception as e:
             self.logger.error(f"生成场景描述时出错: {e}")
             return f"生成场景描述失败：{str(e)}"
-
-    async def update_character_profile(self, modification) -> str:
-        """根据当前对话更新角色档案
-        
-        Returns:
-            str: 更新结果描述
-        """
-
-        # 计算能量消耗
-        energy_cost = await self.llm_service.calculate_energy_cost(
-            action_type="modify",
-            context=f"修改内容：{modification}\n当前能量：{self.energy}"
-        )
-
-        if self.energy < energy_cost:
-            self.logger.warning(f"能量不足 - 需要: {energy_cost}, 当前: {self.energy}")
-            return f"能量不足！需要{energy_cost}点能量，当前剩余{self.energy}点能量。"
-
-        # 扣除能量并执行修改
-        self.energy -= energy_cost
-
-        try:
-            # 应用更新
-            await self.character.update_attributes(modification)
-            self.logger.info(f"人物状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
-            return f"已完成：{modification}\n消耗了{energy_cost}点能量，剩余{self.energy}点能量。"
-        except Exception as e:
-            self.logger.error(f"更新角色档案时出错: {e}")
-            return f"更新失败：{str(e)}"

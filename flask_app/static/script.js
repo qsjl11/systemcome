@@ -5,6 +5,28 @@ let conversations = new Map();
 document.addEventListener('DOMContentLoaded', () => {
     createNewChat();
 
+    // 命令点击事件监听
+    document.querySelectorAll('.command-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const command = item.getAttribute('data-command');
+            const textarea = document.getElementById('userInput');
+            
+            // 检查命令是否需要参数（通过检查命令末尾是否有空格）
+            if (command.endsWith(' ')) {
+                // 需要参数的命令，只填入不发送
+                textarea.value = command;
+                textarea.focus();
+                // 自动调整高度
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            } else {
+                // 不需要参数的命令，直接填入并发送
+                textarea.value = command;
+                sendMessage();
+            }
+        });
+    });
+
     // 文本框事件监听
     const textarea = document.getElementById('userInput');
     textarea.addEventListener('keydown', (e) => {

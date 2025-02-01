@@ -12,6 +12,7 @@ app = Flask(__name__)
 # 初始化系统
 system = System()
 logger.info("系统初始化完成")
+started = False
 
 
 @app.route('/')
@@ -43,6 +44,7 @@ async def chat():
 @app.route('/chatstream', methods=['GET', 'POST'])
 async def chat_stream():
     """处理流式对话请求"""
+    global started
     try:
         logger.info("收到流式对话请求")
         if request.method == 'POST':
@@ -51,47 +53,57 @@ async def chat_stream():
         else:
             message = request.args.get('query', '')
 
-        # 处理特殊指令
-        if message.startswith('/'):
-            if message.startswith('/md '):
-                modification = message[8:].strip()
-                response = await system.modify_world(modification)
-                logger.info("修改世界状态")
-
-            elif message.startswith('/qu '):
-                query = message[7:].strip()
-                response = await system.confirm_world_state(query)
-                logger.info("查询世界状态")
-
-            elif message == '/st':
-                response = await system.advance_story()
-                logger.info("故事演进")
-
-            elif message == '/th':
-                response = system.character.get_current_thoughts()
-                logger.info("获取主角心理活动成功")
-            elif message == '/en':
-                logger.info(f"查询系统能量成功: {system.energy}")
-                response = f"当前系统能量：{system.energy}"
-            elif message == '/ch':
-                response = system.character.get_character_info_str()
-                logger.info("获取角色信息成功")
-            elif message == '/world':
-                response = system.world.get_current_context()
-                logger.info("获取世界信息成功")
-            elif message == '/upch ':
-                query = message[5:].strip()
-                response = await system.update_character_profile(query)
-                logger.info("更新角色档案成功")
-            elif message == '/des':
+        if not started:
+            if message == "/start":
+                started = True
                 response = await system.generate_scene_description()
-                logger.info("生成场景描述成功")
+                response += "\n\n【作为玩家的你将扮演系统，你可以向主角发布任务、对话、修改世界状态，或者推动故事发展。请尽情发挥你的想象力帮助主角或者...】"
+                logger.info("生成开始场景")
             else:
-                logger.warning(f"收到未知指令: {message}")
-                response = "未知指令"
+                response = "输入 /start 开始游戏"
         else:
-            # 支持普通对话
-            response = await system.communicate(message)
+            # 处理特殊指令
+            if message.startswith('/'):
+                if message.startswith('/md '):
+                    modification = message[8:].strip()
+                    response = await system.modify_state(modification)
+                    logger.info("修改世界状态")
+                elif message.startswith('/qu '):
+                    query = message[7:].strip()
+                    response = await system.confirm_world_state(query)
+                    logger.info("查询世界状态")
+                elif message.startswith('/st'):
+                    if len(message) > 3:
+                        query = message[3:].strip()
+                    else:
+                        query = ""
+                    response = await system.advance_story(query)
+                    logger.info("故事演进")
+                elif message == '/th':
+                    response = system.character.get_current_thoughts()
+                    logger.info("获取主角心理活动成功")
+                elif message == '/en':
+                    logger.info(f"查询系统能量成功: {system.energy}")
+                    response = f"当前系统能量：{system.energy}"
+                elif message == '/ch':
+                    response = system.character.get_character_info_str()
+                    logger.info("获取角色信息成功")
+                elif message == '/world':
+                    response = system.world.get_current_context()
+                    logger.info("获取世界信息成功")
+                    logger.info("更新角色档案成功")
+                elif message == '/des':
+                    response = await system.generate_scene_description()
+                    logger.info("生成场景描述成功")
+                elif message == '/check_task':
+                    response = await system.check_task_completion()
+                    logger.info("检查任务成功")
+                else:
+                    logger.warning(f"收到未知指令: {message}")
+                    response = "无效指令请重新输入"
+            else:
+                # 支持普通对话
+                response = await system.communicate(message)
 
         # 流式返回
         def generate():
@@ -100,7 +112,7 @@ async def chat_stream():
             yield 'data: {}\n\n'.format(json.dumps({'conversation_id': ""}))
             yield 'data: {}\n\n'.format(json.dumps({'content': '[DONE]'}))
 
-        logger.info("开始流式响应")
+        logger.info(f"开始流式响应:{response}")
         return Response(generate(), mimetype='text/event-stream')
 
     except Exception as e:

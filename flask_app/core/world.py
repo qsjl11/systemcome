@@ -17,12 +17,11 @@ class World:
         self.logger.info("成功加载世界初始化配置")
 
         self.background = init_data.get("世界设定")  # 背景描述
-        self.current_state = init_data.get("当前场景")  # 当前世界状态
         self.history: List[str] = init_data.get("世界事件").split("\n")  # 历史事件记录
-        self.story_framework = init_data.get("故事大纲")  # 故事框架描述
+        self.hidden_story_framework = init_data.get("隐藏故事大纲")  # 故事框架描述
         self.character = None  # 将由System类注入主角引用
 
-    def apply_change(self, change_prompt: str, timestamp: str) -> str:
+    def apply_change(self, change_prompt: str) -> str:
         self.logger.info(f"应用世界变更: {change_prompt}")
         """应用世界变更
 
@@ -33,14 +32,14 @@ class World:
             str: 变更结果描述
         """
         # 记录变更
-        event = f"世界变化事件({timestamp}): {change_prompt}"
+        event = f"世界变化事件: {change_prompt}"
 
         self.history.append(event)
 
         # 如果已注入主角引用，通知主角更新
         if self.character:
             self.logger.debug("通知主角更新状态")
-            self.character.update(event)
+            self.character.update_thoughts(event)
 
         return f"世界状态已更新：{change_prompt}"
 
@@ -56,22 +55,20 @@ class World:
         """
         # 获取最近的历史事件
         hidden_info = f"""
-        [[故事大纲]]
-        {self.story_framework}
-        """
+[[隐藏故事大纲]]
+{self.hidden_story_framework}"""
+
         recent_history = self.history[-length:] if self.history else []
         history_info = "\n".join(recent_history)
-        info = f"""
-        [[世界背景]]：
-        {self.background}
 
-        [[历史事件]]：
-        {history_info}
-        
-        {hidden_info if show_hide_info else ""}
-        
-        [[当前场景]]：
-        {self.current_state}"""
+        info = f"""
+[[世界背景]]：
+{self.background}
+
+[[历史事件]]：
+{history_info}
+
+{hidden_info if show_hide_info else ""}"""
 
         return info
 
@@ -114,9 +111,6 @@ class World:
 {self.background}
 
 [[历史事件]]：
-{history_info}
-
-[[当前场景]]：
-{self.current_state}"""
+{history_info}"""
 
         return info
