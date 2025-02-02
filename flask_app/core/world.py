@@ -36,11 +36,6 @@ class World:
 
         self.history.append(event)
 
-        # 如果已注入主角引用，通知主角更新
-        if self.character:
-            self.logger.debug("通知主角更新状态")
-            self.character.update_thoughts(event)
-
         return f"世界状态已更新：{change_prompt}"
 
     def get_current_context(self, length=100, show_hide_info=False) -> str:
@@ -81,7 +76,7 @@ class World:
             result: 查询结果
         """
         # 记录查询结果作为事件
-        event = f"查询事件: {query} -> {result}"
+        event = f"查询事件: {query} -> {result}".strip()
         self.history.append(event)
 
     def log_history(self, event_text: str, type='event'):
@@ -91,7 +86,7 @@ class World:
         Args:
             event: 事件描述
         """
-        event = f"历史事件: {event_text}"
+        event = f"历史事件: {event_text}".strip()
         self.history.append(event)
 
     def set_character(self, character):

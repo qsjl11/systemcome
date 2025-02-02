@@ -24,6 +24,7 @@ class Character:
             self.logger.info("成功加载角色初始化配置")
             self.profile = init_data.get("主角设定")
             self.thoughts = init_data.get("主角当前想法", "初次进入这个世界，充满好奇与期待。")
+            self.hidden_profile = init_data.get("隐藏补充设定", "无")
         except Exception as e:
             self.logger.error(f"加载角色初始化配置失败: {e}")
             raise e
@@ -65,33 +66,50 @@ class Character:
             self.logger.error(f"解析行动方案失败: {e}")
             return ["自由行动", "自由行动", "自由行动"]
 
-    async def update_attributes(self, changes: str):
+    async def update_attributes(self, changes: str) -> str:
         """更新角色属性
 
         Args:
             changes: 属性变更字典
+            
+        Returns:
+            str: 变更的差异信息
         """
         self.logger.info(f"更新角色属性: {changes}")
 
+        # 保存原始档案
+        original_profile = self.profile
+
         # 构建提示让LLM更新角色档案
         prompt = f"""
-# [当前角色档案]
+下面是当前的角色档案：
+---
+
 {self.profile}
 
-# [需要更新的变更]
+---
+
+下面是需要变更的内容：
+---
+
 {changes}
 
-请根据上述变更信息，更新角色档案。保持原有格式，仅在对应块下更新相关内容。
-比如新增系统任务，需要在[系统任务]下新增一条任务描述。
-系统任务内容：xxxxx -> 奖励：yyyyy
+---
+
+请根据上述变更信息，更新角色档案。保持原有格式，仅在对应块下更新相关内容。注意：
+1. 直接更新内容，不用记录更新历史。
+2. 需要返回完整的角色档案
+3. 最小化根据变更要求，最小化的修改状态，不要修改任何与变更无关的内容。
 
 返回完整的更新后的角色档案："""
 
         # 使用LLM更新档案
         updated_profile = await self.llm_service.generate_response(prompt)
+        updated_profile = updated_profile.replace("#", "").replace("---", "")
         self.profile = updated_profile
-        await self.update_thoughts(f"更新了...{changes}")
         self.logger.debug(f"更新后的档案: {self.profile}")
+
+        return changes
 
     def get_current_thoughts(self) -> str:
         self.logger.debug(f"获取当前心理活动: {self.thoughts}")
@@ -125,15 +143,22 @@ class Character:
         self.thoughts = await self.llm_service.generate_response(prompt, use_small_model=True)
         self.logger.debug(f"新的心理活动: {self.thoughts}")
 
-    def get_character_info_str(self) -> str:
+    def get_character_info_str(self, show_hidden_info=False) -> str:
         self.logger.info("获取角色信息")
         """获取角色信息
 
         Returns:
             Dict: 角色信息
         """
+        if show_hidden_info:
+            hidden_info = self.hidden_profile
+        else:
+            hidden_info = ""
+
         info = f"""[[角色档案]]：
 {self.profile}
+
+{hidden_info}
 
 [[当前心理]]：
 {self.thoughts}"""

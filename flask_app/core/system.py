@@ -19,6 +19,7 @@ class System:
         self.energy = 10000.0  # 初始能量值
         self.dialogue_history = []  # 对话历史记录
         self.dialogue_summaries = []  # 对话总结记录
+        self.qu_history = []  # qu命令历史记录
 
     async def modify_state(self, modification: str) -> str:
         """修改世界或角色状态
@@ -34,24 +35,19 @@ class System:
 [修改内容]
 {modification}
 
-[当前能量]
-{self.energy}
-
-请分析这个修改内容属于哪种类型，并计算所需能量。要求：
+请分析这个修改内容属于哪种类型。注意：
 1. 分析修改内容是针对世界状态还是角色状态
-2. 计算这个修改所需的能量值（范围1-100）
-3. 发布任务是给主角发布任务，因此类型为character
+2. 发布任务是给主角发布任务，因此类型为character
 
 请严格按以下格式回复：
-[类型]：world或character
-[能量]：数值"""
+[类型]：world或character"""
 
         # 获取类型判断和能量计算
         response = await self.llm_service.generate_response(prompt, use_small_model=True)
 
         # 解析响应
         modification_type = ""
-        energy_cost = 0
+        energy_cost = 1
 
         for line in response.split("\n"):
             if "[类型]：" in line:
@@ -59,12 +55,6 @@ class System:
                     modification_type = "world"
                 else:
                     modification_type = "character"
-            elif "[能量]：" in line:
-                s = re.sub(r"[^\d.]", "", line)
-                if s != "":
-                    energy_cost = float(s)
-                else:
-                    energy_cost = 1.0
 
         self.logger.info(f"修改类型: {modification_type}, 所需能量: {energy_cost}")
 
@@ -78,14 +68,17 @@ class System:
 
         try:
             if modification_type == "world":
-                result = self.world.apply_change(modification)
+                self.world.apply_change(modification)
                 self.logger.info(f"世界状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
+                result_msg = f"世界状态已更新：{modification}"
             else:  # character
                 await self.character.update_attributes(modification)
-                result = "角色状态已更新"
                 self.logger.info(f"角色状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
+                result_msg = f"角色状态变更如下：{modification}"
 
-            return f"{result}\n消耗了{energy_cost}点能量，剩余{self.energy}点能量。"
+            response = await self.communicate(modification)
+
+            return f"[{result_msg}]\n[消耗了{energy_cost}点能量，剩余{self.energy}点能量。]\n\n{response}"
         except Exception as e:
             self.logger.error(f"修改失败: {e}")
             return f"修改失败：{str(e)}"
@@ -107,11 +100,25 @@ class System:
         character_info = self.character.get_character_info_str()
         self.logger.debug(f"获取到的角色状态: {character_info}")
 
+        # 获取qu历史
+        qu_context = self._format_qu_history(10)  # 获取最近10条qu记录
+        self.logger.debug(f"获取到的qu历史: {qu_context}")
+
+        # 获取对话历史
+        dialogue_context = self._format_recent_history(10)
+        self.logger.debug(f"获取到的对话历史: {dialogue_context}")
+
         # 生成查询响应
         prompt = f"""
 {character_info}        
 
 {world_current_context}
+
+[最近对话记录]
+{dialogue_context}
+
+[最近查询记录]
+{qu_context}
 
 [玩家查询内容]
 {query}
@@ -121,6 +128,7 @@ class System:
 2. 如果查询的内容不包含在上文中，可以进行编造，这个是故事的一部分。
 3. 创作时请保持逻辑性和连贯性，不要与上文内容相悖。
 4. 你是回答问题，不要用“在这个故事中”、“根据上文”等开头，避免玩家感到不真实。
+5. 在之前已有的信息基础之上，查询结果要给出详细信息。
 
 请根据以上信息回答查询："""
 
@@ -129,24 +137,13 @@ class System:
         # 保存查询结果到世界历史
         self.world.save_query_result(query, response)
 
+        # 记录查询历史
+        self.qu_history.append({
+            "query": query,
+            "response": response
+        })
+        
         return response
-
-    async def check_task_completion(self, context: str):
-        """检查任务完成状态
-
-        Args:
-            context: 相关上下文（对话内容或故事进展）
-        """
-        self.logger.info("检查任务完成状态")
-
-        is_completed, response = await self.llm_service.check_task_status(self.character.get_character_info_str(),
-                                                                          context)
-        if is_completed:
-            self.logger.info(f"任务已完成并应用奖励: {response}")
-            return response
-        else:
-            self.logger.info("任务未完成")
-            return ""
 
     async def communicate(self, message: str) -> str:
         self.logger.info(f"与主角对话: {message}")
@@ -231,33 +228,25 @@ class System:
         if time_span_str == "":
             time_span_str = "10分钟"
 
-        # 生成行动方案
-        actions = await self.character.generate_actions(time_span_str)
+        character_info = self.character.get_character_info_str(show_hidden_info=True)
 
         # 构建故事演进提示
         world_current_context = self.world.get_current_context(show_hide_info=True)
         prompt = f"""
-[当前主角状态]
-{self.character.profile}
-{self.character.thoughts}
+{character_info}
 
 {world_current_context}
 
-[主角候选行动]
-1. {actions[0]}
-2. {actions[1]}
-3. {actions[2]}
-
 
 根据以上信息进行行动选择，并描述其展开过程和后续世界的变化，要注意：
-1. 不要回复选择行动1、2、3，而是直接描述行动内容。
+1. 直接描述行动内容和世界的推演变化情况。
 2. 以第三人称视角描述故事，主角名称应当偶尔直接提及，以确保玩家能理解主人公是谁。
 3. 风格上要符合当前世界设定，保持优秀网络小说的描写风格，如果有需要，有适当的心理、环境和他人互动等描写。
 4. 描述其展开过程和后续世界的变化前进时间：{time_span_str}
 5. 要严格遵循隐藏故事大纲，如果有冲突，以隐藏故事大纲为准。
-6. 要给出时间后，故事开展的具体的时间和日期和地点。
+6. 要给出时间后，故事开展的具体的时间和日期和地点。时间要大于最后一个事件的时间。要按照时间顺序推演后续角色和世界的变化。
 
-请选择一个最合理的行动方案，并描述其展开过程（200字以内）："""
+请主角以最合理的方案行动，并描述其展开过程（200字以内）："""
 
         self.logger.info(f"故事演进提示: {prompt}")
 
@@ -267,14 +256,9 @@ class System:
         # 记录到世界历史
         self.world.log_history(story_progress.replace("\n", " "))
 
+        await self.character.update_attributes("故事进展："+story_progress.replace("\n","")+"\n 根据以上故事进展更新主角的状态情况")
         # 更新主角心理状态
         await self.character.update_thoughts(f"世界发生了新的发展...{story_progress}")
-
-        # 检查任务完成情况
-        task_result = await self.check_task_completion(story_progress)
-
-        if task_result != "":
-            story_progress += f"\n\n【任务完成情况，请根据情况发放奖励】\n{task_result}"
 
         self.logger.info("故事演进完成")
         self.logger.debug(f"故事进展: {story_progress}")
@@ -320,6 +304,48 @@ class System:
             await self.summarize_current_dialogue()
             self.dialogue_history = []
             self.logger.info("已清除对话历史并保存总结")
+
+    def _format_qu_history(self, count: int) -> str:
+        """格式化最近的qu历史
+
+        Args:
+            count: 获取的记录数
+
+        Returns:
+            str: 格式化的qu历史
+        """
+        recent = self.qu_history[-count:] if len(self.qu_history) > 0 else []
+        formatted = []
+        for i, record in enumerate(recent, 1):
+            formatted.append(f"第{i}次查询：")
+            formatted.append(f"问：{record['query']}")
+            formatted.append(f"答：{record['response']}\n")
+        return "\n".join(formatted)
+
+    async def reset(self) -> str:
+        """重置游戏状态
+        
+        Returns:
+            str: 重置结果
+        """
+        self.logger.info("开始重置游戏状态")
+        try:
+            # 重新初始化各个组件
+            self.world = World()
+            self.character = Character(self.llm_service)
+            self.world.set_character(self.character)
+            
+            # 重置系统状态
+            self.energy = 10000.0
+            self.dialogue_history = []
+            self.dialogue_summaries = []
+            self.qu_history = []  # 清空qu历史
+            
+            self.logger.info("游戏状态重置成功")
+            return "游戏状态已重置，角色和世界已恢复到初始状态。"
+        except Exception as e:
+            self.logger.error(f"重置游戏状态失败: {e}")
+            return f"重置失败: {str(e)}"
 
     async def generate_scene_description(self) -> str:
         """生成当前场景的描述

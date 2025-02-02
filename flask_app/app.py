@@ -65,11 +65,11 @@ async def chat_stream():
             # 处理特殊指令
             if message.startswith('/'):
                 if message.startswith('/md '):
-                    modification = message[8:].strip()
+                    modification = message[3:].strip()
                     response = await system.modify_state(modification)
                     logger.info("修改世界状态")
                 elif message.startswith('/qu '):
-                    query = message[7:].strip()
+                    query = message[3:].strip()
                     response = await system.confirm_world_state(query)
                     logger.info("查询世界状态")
                 elif message.startswith('/st'):
@@ -98,6 +98,10 @@ async def chat_stream():
                 elif message == '/check_task':
                     response = await system.check_task_completion()
                     logger.info("检查任务成功")
+                elif message == '/reset':
+                    response = await system.reset()
+                    started = False  # 重置游戏状态后，需要重新/start
+                    logger.info("重置游戏状态成功")
                 else:
                     logger.warning(f"收到未知指令: {message}")
                     response = "无效指令请重新输入"
