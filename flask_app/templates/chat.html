@@ -10,13 +10,11 @@
 <body>
 <div class="container">
 
-    <!-- 左侧对话管理 -->
+    <!-- 左侧剧本列表 -->
     <div class="sidebar" id="sidebar">
-        <button class="new-chat" onclick="createNewChat()">
-            <span>新对话</span>
-        </button>
-        <div class="conversations" id="conversationList">
-            <!-- 对话列表将通过JS动态添加 -->
+        <div class="story-title">剧本列表</div>
+        <div class="stories" id="storyList">
+            <!-- 剧本列表将通过JS动态添加 -->
         </div>
     </div>
 
@@ -53,8 +51,8 @@
                         <div class="command-desc">查询世界信息</div>
                     </div>
                     <div class="command-item" data-command="/st ">
-                    <div class="command-title">/st [演进时间，默认10分钟]</div>
-                    <div class="command-desc">故事演进</div>
+                    <div class="command-title">/st [演进时间]</div>
+                    <div class="command-desc">故事演进，默认10分钟</div>
                 </div>
                 <div class="command-item" data-command="/th">
                     <div class="command-title">/th</div>

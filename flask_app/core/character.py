@@ -7,27 +7,36 @@ from .utils import read_story_file_to_dict
 
 
 class Character:
-    def __init__(self, llm_service: LLMService):
+    def __init__(self, llm_service: LLMService, story_name: str = None):
         self.logger = setup_logger('Character')
-        self.logger.info("初始化主角代理")
+        self.logger.info(f"初始化主角代理，剧本: {story_name}")
         """初始化主角代理
 
         Args:
             llm_service: LLM服务实例
+            story_name: 可选，指定剧本名称
         """
         self.llm_service = llm_service
 
         # 读取初始化配置
-        story_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'story', 'character_init.txt')
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        if story_name:
+            story_path = os.path.join(base_dir, 'story', story_name, 'character_init.txt')
+        else:
+            story_path = os.path.join(base_dir, 'story', 'character_init.txt')
+            
         try:
             init_data = read_story_file_to_dict(story_path)
-            self.logger.info("成功加载角色初始化配置")
-            self.profile = init_data.get("主角设定")
+            self.logger.info(f"成功加载角色初始化配置: {story_path}")
+            self.profile = init_data.get("主角设定","无")
             self.thoughts = init_data.get("主角当前想法", "初次进入这个世界，充满好奇与期待。")
             self.hidden_profile = init_data.get("隐藏补充设定", "无")
         except Exception as e:
             self.logger.error(f"加载角色初始化配置失败: {e}")
-            raise e
+            # 如果加载失败，使用默认配置
+            self.profile = "这是一个默认的角色设定"
+            self.thoughts = "初次进入这个世界，充满好奇与期待。"
+            self.hidden_profile = "无"
 
     async def generate_actions(self, time_span_str: str) -> List[str]:
         self.logger.info("生成行动方案")

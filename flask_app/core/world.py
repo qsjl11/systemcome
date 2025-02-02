@@ -7,18 +7,33 @@ from .utils import read_story_file_to_dict
 
 
 class World:
-    def __init__(self):
+    def __init__(self, story_name: str = None):
         self.logger = setup_logger('World')
-        self.logger.info("初始化世界模型")
+        self.logger.info(f"初始化世界模型，剧本: {story_name}")
         """初始化世界模型"""
         # 读取初始化配置
-        story_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'story', 'world_init.txt')
-        init_data = read_story_file_to_dict(story_path)
-        self.logger.info("成功加载世界初始化配置")
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        if story_name:
+            story_path = os.path.join(base_dir, 'story', story_name, 'world_init.txt')
+        else:
+            story_path = os.path.join(base_dir, 'story', 'world_init.txt')
+            
+        try:
+            init_data = read_story_file_to_dict(story_path)
+            self.logger.info(f"成功加载世界初始化配置: {story_path}")
+        except Exception as e:
+            self.logger.error(f"加载世界初始化配置失败: {e}")
+            # 如果加载失败，使用默认配置
+            init_data = {
+                "世界设定": "这是一个默认的世界设定",
+                "世界事件": "无历史事件",
+                "隐藏故事大纲": "无故事大纲"
+            }
 
-        self.background = init_data.get("世界设定")  # 背景描述
-        self.history: List[str] = init_data.get("世界事件").split("\n")  # 历史事件记录
-        self.hidden_story_framework = init_data.get("隐藏故事大纲")  # 故事框架描述
+        self.background = init_data.get("世界设定","无")  # 背景描述
+        self.history: List[str] = init_data.get("世界事件","无").split("\n")  # 历史事件记录
+        self.hidden_story_framework = init_data.get("隐藏故事大纲","无")  # 故事框架描述
+        self.story_readme = init_data.get("玩法说明","无")
         self.character = None  # 将由System类注入主角引用
 
     def apply_change(self, change_prompt: str) -> str:

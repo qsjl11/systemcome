@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, List
 import json
+import os
 from .world import World
 from .character import Character
 from .llm_service import LLMService
@@ -8,18 +9,19 @@ import re
 
 
 class System:
-    def __init__(self):
+    def __init__(self, story_name: str = "默认剧本"):
         self.logger = setup_logger('System')
         self.logger.info("初始化系统控制器")
         """初始化系统控制器"""
         self.llm_service = LLMService()
-        self.world = World()
-        self.character = Character(self.llm_service)
+        self.world = World(story_name)
+        self.character = Character(self.llm_service, story_name)
         self.world.set_character(self.character)
         self.energy = 10000.0  # 初始能量值
         self.dialogue_history = []  # 对话历史记录
         self.dialogue_summaries = []  # 对话总结记录
         self.qu_history = []  # qu命令历史记录
+        self.current_story = story_name or "默认剧本"
 
     async def modify_state(self, modification: str) -> str:
         """修改世界或角色状态
@@ -322,17 +324,20 @@ class System:
             formatted.append(f"答：{record['response']}\n")
         return "\n".join(formatted)
 
-    async def reset(self) -> str:
+    async def reset(self, story_name: str = None) -> str:
         """重置游戏状态
         
+        Args:
+            story_name: 可选，指定要切换到的剧本名称
+            
         Returns:
             str: 重置结果
         """
-        self.logger.info("开始重置游戏状态")
+        self.logger.info(f"开始重置游戏状态，切换剧本: {story_name}")
         try:
             # 重新初始化各个组件
-            self.world = World()
-            self.character = Character(self.llm_service)
+            self.world = World(story_name)
+            self.character = Character(self.llm_service, story_name)
             self.world.set_character(self.character)
             
             # 重置系统状态
@@ -341,11 +346,56 @@ class System:
             self.dialogue_summaries = []
             self.qu_history = []  # 清空qu历史
             
+            if story_name:
+                self.current_story = story_name
+            
             self.logger.info("游戏状态重置成功")
-            return "游戏状态已重置，角色和世界已恢复到初始状态。"
+            return f"游戏状态已重置，已切换到剧本「{self.current_story}」。"
         except Exception as e:
             self.logger.error(f"重置游戏状态失败: {e}")
             return f"重置失败: {str(e)}"
+            
+    def get_available_stories(self) -> List[str]:
+        """获取所有可用的剧本列表
+        
+        Returns:
+            List[str]: 剧本名称列表
+        """
+        story_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'story')
+        stories = []
+        try:
+            for item in os.listdir(story_dir):
+                if os.path.isdir(os.path.join(story_dir, item)):
+                    stories.append(item)
+            self.logger.info(f"获取到可用剧本列表: {stories}")
+            return stories
+        except Exception as e:
+            self.logger.error(f"获取剧本列表失败: {e}")
+            return []
+            
+    async def switch_story(self, story_name: str) -> str:
+        """切换到指定剧本
+        
+        Args:
+            story_name: 剧本名称
+            
+        Returns:
+            str: 切换结果
+        """
+        self.logger.info(f"准备切换到剧本: {story_name}")
+        story_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'story', story_name)
+        
+        if not os.path.isdir(story_dir):
+            self.logger.error(f"剧本不存在: {story_name}")
+            return f"切换失败：剧本「{story_name}」不存在"
+            
+        try:
+            result = await self.reset(story_name)
+            self.logger.info(f"剧本切换成功: {story_name}")
+            return result
+        except Exception as e:
+            self.logger.error(f"切换剧本失败: {e}")
+            return f"切换剧本失败: {str(e)}"
 
     async def generate_scene_description(self) -> str:
         """生成当前场景的描述

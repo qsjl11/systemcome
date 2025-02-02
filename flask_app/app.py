@@ -53,11 +53,24 @@ async def chat_stream():
         else:
             message = request.args.get('query', '')
 
-        if not started:
+        if message.startswith('/story'):
+            if len(message) > 6:
+                story_name = message[6:].strip()
+                response = await system.switch_story(story_name)
+                started = False  # 切换剧本后，需要重新/start
+                logger.info(f"切换剧本成功: {story_name}")
+            else:
+                # 获取可用剧本列表
+                stories = system.get_available_stories()
+                response = "可用剧本列表：\n" + "\n".join([f"- {story}" for story in stories])
+                logger.info("获取剧本列表成功")
+        elif not started:
             if message == "/start":
                 started = True
-                response = await system.generate_scene_description()
-                response += "\n\n【作为玩家的你将扮演系统，你可以向主角发布任务、对话、修改世界状态，或者推动故事发展。请尽情发挥你的想象力帮助主角或者...】"
+                response = "【玩法说明】\n"
+                response += f"{system.world.story_readme}\n\n"
+                response += "\n\n【作为玩家的你将扮演系统，你可以向主角发布对话、修改世界任务状态，或者推动故事发展。】\n【即将进入开始场景，请尽情发挥你的想象力帮助主角或者...】\n\n"
+                response += await system.generate_scene_description()
                 logger.info("生成开始场景")
             else:
                 response = "输入 /start 开始游戏"
