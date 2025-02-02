@@ -173,3 +173,27 @@ class Character:
 {self.thoughts}"""
 
         return info
+        
+    def get_save_data(self) -> dict:
+        """获取需要保存的角色状态数据
+        
+        Returns:
+            dict: 角色状态数据
+        """
+        self.logger.info("获取角色状态存档数据")
+        return {
+            "profile": self.profile,
+            "thoughts": self.thoughts,
+            "hidden_profile": self.hidden_profile
+        }
+        
+    def load_save_data(self, save_data: dict):
+        """从存档数据恢复角色状态
+        
+        Args:
+            save_data: 存档数据
+        """
+        self.logger.info("从存档数据恢复角色状态")
+        self.profile = save_data["profile"]
+        self.thoughts = save_data["thoughts"]
+        self.hidden_profile = save_data["hidden_profile"]

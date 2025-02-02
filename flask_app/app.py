@@ -64,6 +64,20 @@ async def chat_stream():
                 stories = system.get_available_stories()
                 response = "可用剧本列表：\n" + "\n".join([f"- {story}" for story in stories])
                 logger.info("获取剧本列表成功")
+        elif message == '/help':
+            response = system.get_help_info(started=started)
+            logger.info("获取帮助信息成功")
+        elif message.startswith('/load'):
+            save_name = message[5:].strip() if len(message) > 5 else ""
+            if save_name == "":
+                response = await system.load_game()
+            else:
+                response = await system.load_game(save_name)
+            started = True  # 加载存档后自动设置为started状态
+            logger.info(f"加载游戏状态: {save_name}")
+        elif message == '/ls':
+            response = system.list_saves()
+            logger.info("获取存档列表")
         elif not started:
             if message == "/start":
                 started = True
@@ -112,9 +126,20 @@ async def chat_stream():
                     response = await system.reset()
                     started = False  # 重置游戏状态后，需要重新/start
                     logger.info("重置游戏状态成功")
-                elif message == '/help':
-                    response = system.get_help_info()
-                    logger.info("获取帮助信息成功")
+                elif message.startswith('/save'):
+                    save_name = message[5:].strip() if len(message) > 5 else ""
+                    if save_name == "":
+                        response = await system.save_game()
+                    else:
+                        response = await system.save_game(save_name)
+                    logger.info(f"保存游戏状态: {save_name}")
+                elif message.startswith('/savef'):
+                    save_name = message[6:].strip() if len(message) > 6 else ""
+                    if save_name == "":
+                        response = await system.save_game(force=True)
+                    else:
+                        response = await system.save_game(save_name, force=True)
+                    logger.info(f"强制保存游戏状态: {save_name}")
                 else:
                     logger.warning(f"收到未知指令: {message}")
                     response = "无效指令请重新输入"

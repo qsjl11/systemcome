@@ -124,3 +124,29 @@ class World:
 {history_info}"""
 
         return info
+
+    def get_save_data(self) -> dict:
+        """获取需要保存的世界状态数据
+        
+        Returns:
+            dict: 世界状态数据
+        """
+        self.logger.info("获取世界状态存档数据")
+        return {
+            "background": self.background,
+            "history": self.history,
+            "hidden_story_framework": self.hidden_story_framework,
+            "story_readme": self.story_readme
+        }
+        
+    def load_save_data(self, save_data: dict):
+        """从存档数据恢复世界状态
+        
+        Args:
+            save_data: 存档数据
+        """
+        self.logger.info("从存档数据恢复世界状态")
+        self.background = save_data["background"]
+        self.history = save_data["history"]
+        self.hidden_story_framework = save_data["hidden_story_framework"]
+        self.story_readme = save_data["story_readme"]

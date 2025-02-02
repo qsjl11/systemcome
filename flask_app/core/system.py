@@ -1,6 +1,7 @@
 from typing import Optional, List
 import json
 import os
+from datetime import datetime
 from .world import World
 from .character import Character
 from .llm_service import LLMService
@@ -144,7 +145,7 @@ class System:
             "query": query,
             "response": response
         })
-        
+
         return response
 
     async def communicate(self, message: str) -> str:
@@ -258,7 +259,8 @@ class System:
         # 记录到世界历史
         self.world.log_history(story_progress.replace("\n", " "))
 
-        await self.character.update_attributes("故事进展："+story_progress.replace("\n","")+"\n 根据以上故事进展更新主角的状态情况")
+        await self.character.update_attributes(
+            "故事进展：" + story_progress.replace("\n", "") + "\n 根据以上故事进展更新主角的状态情况")
         # 更新主角心理状态
         await self.character.update_thoughts(f"世界发生了新的发展...{story_progress}")
 
@@ -339,22 +341,22 @@ class System:
             self.world = World(story_name)
             self.character = Character(self.llm_service, story_name)
             self.world.set_character(self.character)
-            
+
             # 重置系统状态
             self.energy = 10000.0
             self.dialogue_history = []
             self.dialogue_summaries = []
             self.qu_history = []  # 清空qu历史
-            
+
             if story_name:
                 self.current_story = story_name
-            
+
             self.logger.info("游戏状态重置成功")
             return f"游戏状态已重置，已切换到剧本「{self.current_story}」。"
         except Exception as e:
             self.logger.error(f"重置游戏状态失败: {e}")
             return f"重置失败: {str(e)}"
-            
+
     def get_available_stories(self) -> List[str]:
         """获取所有可用的剧本列表
         
@@ -372,7 +374,7 @@ class System:
         except Exception as e:
             self.logger.error(f"获取剧本列表失败: {e}")
             return []
-            
+
     async def switch_story(self, story_name: str) -> str:
         """切换到指定剧本
         
@@ -384,11 +386,11 @@ class System:
         """
         self.logger.info(f"准备切换到剧本: {story_name}")
         story_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'story', story_name)
-        
+
         if not os.path.isdir(story_dir):
             self.logger.error(f"剧本不存在: {story_name}")
             return f"切换失败：剧本「{story_name}」不存在"
-            
+
         try:
             result = await self.reset(story_name)
             self.logger.info(f"剧本切换成功: {story_name}")
@@ -440,19 +442,148 @@ class System:
         except Exception as e:
             self.logger.error(f"生成场景描述时出错: {e}")
             return f"生成场景描述失败：{str(e)}"
+
+    async def save_game(self, save_name: str = "default", force: bool = False) -> str:
+        """保存游戏状态
+        
+        Args:
+            save_name: 存档名称，默认为default
+            force: 是否强制覆盖已有存档
             
-    def get_help_info(self) -> str:
+        Returns:
+            str: 保存结果
+        """
+        self.logger.info(f"开始保存游戏状态到存档: {save_name}")
+
+        save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'save')
+        save_path = os.path.join(save_dir, f"{save_name}.json")
+
+        # 检查存档是否已存在
+        if os.path.exists(save_path) and not force:
+            self.logger.warning(f"存档已存在: {save_name}")
+            return f"存档「{save_name}」已存在，如需覆盖请使用/savef命令"
+
+        try:
+            # 构建存档数据
+            save_data = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "story_name": self.current_story,
+                "energy": self.energy,
+                "dialogue_history": self.dialogue_history,
+                "dialogue_summaries": self.dialogue_summaries,
+                "qu_history": self.qu_history,
+                "world_state": self.world.get_save_data(),
+                "character_state": self.character.get_save_data()
+            }
+
+            # 保存到文件
+            with open(save_path, 'w', encoding='utf-8') as f:
+                json.dump(save_data, f, ensure_ascii=False, indent=2)
+
+            self.logger.info(f"游戏状态保存成功: {save_name}")
+            return f"游戏状态已保存到存档「{save_name}」"
+        except Exception as e:
+            self.logger.error(f"保存游戏状态失败: {e}")
+            return f"保存失败: {str(e)}"
+
+    async def load_game(self, save_name: str = "default") -> str:
+        """加载游戏状态
+        
+        Args:
+            save_name: 存档名称，默认为default
+            
+        Returns:
+            str: 加载结果
+        """
+        self.logger.info(f"开始加载存档: {save_name}")
+
+        save_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'save', f"{save_name}.json")
+
+        if not os.path.exists(save_path):
+            self.logger.warning(f"存档不存在: {save_name}")
+            return f"存档「{save_name}」不存在"
+
+        try:
+            # 读取存档数据
+            with open(save_path, 'r', encoding='utf-8') as f:
+                save_data = json.load(f)
+
+            # 恢复系统状态
+            self.current_story = save_data["story_name"]
+            self.energy = save_data["energy"]
+            self.dialogue_history = save_data["dialogue_history"]
+            self.dialogue_summaries = save_data["dialogue_summaries"]
+            self.qu_history = save_data["qu_history"]
+
+            # 恢复世界和角色状态
+            self.world = World(self.current_story)
+            self.world.load_save_data(save_data["world_state"])
+
+            self.character = Character(self.llm_service, self.current_story)
+            self.character.load_save_data(save_data["character_state"])
+
+            self.world.set_character(self.character)
+
+            self.logger.info(f"存档加载成功: {save_name}")
+            return f"已加载存档「{save_name}」，游戏状态已恢复"
+        except Exception as e:
+            self.logger.error(f"加载存档失败: {e}")
+            return f"加载失败: {str(e)}"
+
+    def list_saves(self) -> str:
+        """列出所有存档
+        
+        Returns:
+            str: 存档列表信息
+        """
+        self.logger.info("获取存档列表")
+
+        save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'save')
+        saves = []
+
+        try:
+            for file in os.listdir(save_dir):
+                if file.endswith('.json'):
+                    save_path = os.path.join(save_dir, file)
+                    with open(save_path, 'r', encoding='utf-8') as f:
+                        save_data = json.load(f)
+                    saves.append({
+                        "name": file[:-5],
+                        "time": save_data["timestamp"],
+                        "story": save_data["story_name"]
+                    })
+
+            if not saves:
+                return "当前没有任何存档"
+
+            # 格式化输出
+            result = "【存档列表】\n"
+            for save in saves:
+                result += f"- {save['name']}\n"
+                result += f"  创建时间：{save['time']}\n"
+                result += f"  剧本：{save['story']}\n"
+
+            return result
+        except Exception as e:
+            self.logger.error(f"获取存档列表失败: {e}")
+            return f"获取存档列表失败: {str(e)}"
+
+    def get_help_info(self, started=True) -> str:
         """获取帮助信息
         
         Returns:
             str: 包含所有命令说明和剧本玩法说明的帮助信息
         """
         self.logger.info("获取帮助信息")
-        
-        help_text = """
+
+        help_text = f"""
 【系统命令说明】
 
 基础命令：
+/save [存档名] - 保存游戏状态，默认存档名为default
+/savef [存档名] - 强制保存游戏状态，会覆盖已有存档
+/load [存档名] - 加载游戏状态，默认加载default存档
+/ls - 显示所有存档
 /start - 开始游戏，显示玩法说明并进入开始场景
 /help - 显示此帮助信息
 /reset - 重置当前游戏状态
@@ -473,9 +604,13 @@ class System:
 状态修改：
 /md <内容> - 修改世界或角色状态(消耗能量)
 
-【本剧本玩法说明】
+
 """
-        # 添加当前剧本的玩法说明
-        help_text += self.world.story_readme
-        
+        if started:
+            help_text +=f"""
+【本剧本玩法说明】
+{self.world.story_readme}"""
+        else:
+            help_text += f"\n左侧选择剧本，点击 /start 开始游戏"
+
         return help_text
