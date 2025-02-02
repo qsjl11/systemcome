@@ -73,7 +73,7 @@ async def chat_stream():
                 response += await system.generate_scene_description()
                 logger.info("生成开始场景")
             else:
-                response = "输入 /start 开始游戏"
+                response = "选择剧本，并点击 /start 开始游戏"
         else:
             # 处理特殊指令
             if message.startswith('/'):
@@ -108,13 +108,13 @@ async def chat_stream():
                 elif message == '/des':
                     response = await system.generate_scene_description()
                     logger.info("生成场景描述成功")
-                elif message == '/check_task':
-                    response = await system.check_task_completion()
-                    logger.info("检查任务成功")
                 elif message == '/reset':
                     response = await system.reset()
                     started = False  # 重置游戏状态后，需要重新/start
                     logger.info("重置游戏状态成功")
+                elif message == '/help':
+                    response = system.get_help_info()
+                    logger.info("获取帮助信息成功")
                 else:
                     logger.warning(f"收到未知指令: {message}")
                     response = "无效指令请重新输入"

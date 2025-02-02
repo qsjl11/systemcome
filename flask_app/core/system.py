@@ -440,3 +440,42 @@ class System:
         except Exception as e:
             self.logger.error(f"生成场景描述时出错: {e}")
             return f"生成场景描述失败：{str(e)}"
+            
+    def get_help_info(self) -> str:
+        """获取帮助信息
+        
+        Returns:
+            str: 包含所有命令说明和剧本玩法说明的帮助信息
+        """
+        self.logger.info("获取帮助信息")
+        
+        help_text = """
+【系统命令说明】
+
+基础命令：
+/start - 开始游戏，显示玩法说明并进入开始场景
+/help - 显示此帮助信息
+/reset - 重置当前游戏状态
+
+故事控制：
+/story - 显示可用剧本列表
+/story <剧本名> - 切换到指定剧本
+/st [时间] - 推动故事发展，可选择指定时间跨度(默认10分钟)
+/des - 生成当前场景的描述
+
+信息查询：
+/qu <内容> - 查询世界状态相关信息
+/th - 查看主角当前的心理活动
+/ch - 查看主角的详细信息
+/world - 查看当前世界状态
+/en - 查看当前系统能量值
+
+状态修改：
+/md <内容> - 修改世界或角色状态(消耗能量)
+
+【本剧本玩法说明】
+"""
+        # 添加当前剧本的玩法说明
+        help_text += self.world.story_readme
+        
+        return help_text
