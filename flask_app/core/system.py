@@ -15,7 +15,7 @@ class System:
         self.logger.info("初始化系统控制器")
         """初始化系统控制器"""
         self.llm_service = LLMService()
-        self.world = World(story_name)
+        self.world = World(self.llm_service, story_name)
         self.character = Character(self.llm_service, story_name)
         self.world.set_character(self.character)
         self.energy = 10000.0  # 初始能量值
@@ -71,15 +71,16 @@ class System:
 
         try:
             if modification_type == "world":
-                self.world.apply_change(modification)
+                await self.world.apply_change(modification)
                 self.logger.info(f"世界状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
                 result_msg = f"世界状态已更新：{modification}"
+                response = ""
             else:  # character
                 await self.character.update_attributes(modification)
                 self.logger.info(f"角色状态修改成功 - 消耗能量: {energy_cost}, 剩余: {self.energy}")
                 result_msg = f"角色状态变更如下：{modification}"
 
-            response = await self.communicate(modification)
+                response = await self.communicate(modification)
 
             return f"[{result_msg}]\n[消耗了{energy_cost}点能量，剩余{self.energy}点能量。]\n\n{response}"
         except Exception as e:
@@ -173,11 +174,7 @@ class System:
 [历史对话总结]
 {context['dialogue_summaries']}
 
-[角色设定]
-{context['character']}
-
-[当前心理状态]
-{context['thoughts']}
+{self.character.get_character_info_str(show_hidden_info=True)}
 
 [最近对话记录]
 {context['dialogue_history']}
@@ -209,6 +206,8 @@ class System:
             if "[心理变化]：" in i:
                 thoughts = i.split("[心理变化]：")[1].strip()
 
+        self.logger.info(response)
+
         self.character.thoughts = thoughts
 
         # 记录对话
@@ -229,7 +228,9 @@ class System:
             str: 故事演进结果
         """
         if time_span_str == "":
-            time_span_str = "10分钟"
+            time_span_str = "10m"
+
+        self.world.advance_time(time_span_str)
 
         character_info = self.character.get_character_info_str(show_hidden_info=True)
 
@@ -241,32 +242,43 @@ class System:
 {world_current_context}
 
 
-根据以上信息进行行动选择，并描述其展开过程和后续世界的变化，要注意：
-1. 直接描述行动内容和世界的推演变化情况。
-2. 以第三人称视角描述故事，主角名称应当偶尔直接提及，以确保玩家能理解主人公是谁。
-3. 风格上要符合当前世界设定，保持优秀网络小说的描写风格，如果有需要，有适当的心理、环境和他人互动等描写。
-4. 描述其展开过程和后续世界的变化前进时间：{time_span_str}
-5. 要严格遵循隐藏故事大纲，如果有冲突，以隐藏故事大纲为准。
+你是一个类似DND或者COC的故事讲述者，根据以上信息进行行动选择，并描述其展开过程和后续世界的变化，要注意：
+1. 以小说叙述的方式行动内容和世界的推演变化情况。要根据主角本身的情况和当前挑战进行对比，推演变化。
+2. 以第三人称视角描述故事，包含环境、氛围、人物状态等要素，主角名称应当偶尔直接提及，以确保玩家能理解主人公是谁。
+3. 风格上要符合当前世界设定，保持优秀网络小说的描写风格，如果有需要，有适当的心理、环境和他人互动等描写，突出重要的细节和关键信息，让玩家能够清晰地理解和想象当前场景
+4. 世界故事推演的时间为：{time_span_str}，要严格遵守这个时长，推演必须可以小于或等于这个时长，但绝对不能超过这个时长。
+5. 如果世界信息有冲突，历史事件优先级最高，隐藏故事大纲优先级其次，世界背景优先级最低。如果其他信息与历史事件有冲突，以历史事件为准。
 6. 要给出时间后，故事开展的具体的时间和日期和地点。时间要大于最后一个事件的时间。要按照时间顺序推演后续角色和世界的变化。
+7. 推演中，系统绝对不会发放能力、物品、信息。主角只能使用自身能力、属性、技能、物品和其他可以获得的非系统支持来解决问题。
+8. 保持文学性和画面感
+9. 控制在200字以内
 
-请主角以最合理的方案行动，并描述其展开过程（200字以内）："""
+展开过程严格如下格式按照：
+
+【时间】：{self.world.current_time.strftime("%Y-%m-%d %H:%M:%S")}
+【地点】：具体的地点
+【故事】：主角的行动以及具体的行动结果。保持文学性和画面感。
+【建议】：给出三个系统帮助主角的简略建议，以减轻玩家的思考压力。
+
+请主角以最合理的方案行动，尽可能详细描述其展开过程（200字左右）："""
 
         self.logger.info(f"故事演进提示: {prompt}")
 
         # 生成故事发展
         story_progress = await self.llm_service.generate_response(prompt)
-
+        ordinary_progress = story_progress
+        story_progress = story_progress.split("【建议】")[0]
         # 记录到世界历史
         self.world.log_history(story_progress.replace("\n", " "))
 
         await self.character.update_attributes(
             "故事进展：" + story_progress.replace("\n", "") + "\n 根据以上故事进展更新主角的状态情况")
         # 更新主角心理状态
-        await self.character.update_thoughts(f"世界发生了新的发展...{story_progress}")
+        await self.communicate(f"[世界发生了新的发展]:{story_progress}")
 
         self.logger.info("故事演进完成")
         self.logger.debug(f"故事进展: {story_progress}")
-        return story_progress
+        return ordinary_progress
 
     def _format_recent_history(self, count: int) -> str:
         """格式化最近的对话历史
@@ -419,7 +431,7 @@ class System:
 [角色信息]
 {character_info}
 
-请根据以上信息，生成一段生动的场景描述。要求：
+你是一个dnd或者coc类似游戏的故事讲述者，请根据以上信息，生成一段生动的场景描述。要求：
 1. 以小说叙述的方式描写当前场景
 2. 包含环境、氛围、人物状态等要素
 3. 突出重要的细节和关键信息
@@ -427,18 +439,24 @@ class System:
 5. 保持文学性和画面感
 6. 控制在300字以内
 
-请直接给出场景描述："""
+按照如下方式格式输出：
+【场景】：当前场景的详细具体描述
+【建议】：给出三个系统帮助主角的简略建议，以减轻玩家的思考压力。
+
+请直接给出场景描述和建议："""
 
         # 生成描述
         try:
             description = await self.llm_service.generate_response(prompt)
+            ordinary_description = description
             self.dialogue_history.append({
                 "system": "[生成场景描述]",
                 "character": "[场景描述，非角色回答]: " + description
             })
-            self.world.history.append(f"场景描述：{description}")
+            history_des = description.replace('\n', ' ')
+            self.world.history.append(f"场景描述：{history_des}")
             self.logger.info("场景描述生成成功")
-            return description
+            return ordinary_description
         except Exception as e:
             self.logger.error(f"生成场景描述时出错: {e}")
             return f"生成场景描述失败：{str(e)}"
@@ -454,7 +472,8 @@ class System:
             str: 保存结果
         """
         self.logger.info(f"开始保存游戏状态到存档: {save_name}")
-
+        if save_name == "default":
+            force = True
         save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'save')
         save_path = os.path.join(save_dir, f"{save_name}.json")
 
@@ -568,7 +587,7 @@ class System:
             self.logger.error(f"获取存档列表失败: {e}")
             return f"获取存档列表失败: {str(e)}"
 
-    def get_help_info(self, started=True) -> str:
+    def get_help_info(self) -> str:
         """获取帮助信息
         
         Returns:
@@ -580,7 +599,7 @@ class System:
 【系统命令说明】
 
 基础命令：
-/save [存档名] - 保存游戏状态，默认存档名为default
+/save [存档名] - 保存游戏状态，默认存档名为default, 如果已经对应存档，则会提示无法保存，可以使用/savef保存。此外，default为快速存档，总是可以被覆盖。
 /savef [存档名] - 强制保存游戏状态，会覆盖已有存档
 /load [存档名] - 加载游戏状态，默认加载default存档
 /ls - 显示所有存档
@@ -604,13 +623,25 @@ class System:
 状态修改：
 /md <内容> - 修改世界或角色状态(消耗能量)
 
+【一般玩法建议】
+本游戏由大语言模型驱动。左侧选择剧本，右侧点击/start正式开始游戏。
+玩家可以参考/world说明来进行初期的探索，也可以作为系统自由行动。
+游戏的基本玩法，就是了解世界情况，干涉主角和世界，然后推演故事。
+
+最基本的，玩家扮演系统可以和主角直接对话，输入任何内容，主角都会进行回复。
+作为系统有一点点作弊的能力也是很正常的, /th 可以查看主角的心理活动。
+故事开始时，玩家不了解世界的全貌，但是可以通过/qu 命令进行检索任何问题。
+只要是想了解都可以通过这个命令来知晓，世界背景、人物关系、甚至最终极的秘密。
+如果玩家想修改主角的属性、技能，甚至性格、记忆、关系，以及世界上的任何设定
+都可以通过/md命令来实现，一次1点能量。你有10000万点能量，请随意使用。
+
+玩家可以通过/st命令来进行故事的推演，默认推演一次10分钟左右。
+玩家可以指定推演时间，如 /st 1小时，就是将故事推延到1小时之后
+不过并非每次都很准确，大模型天然有一些随机性，但大体时间正确。
+主角的行动并不总是听从玩家的指挥的，这个角色性格和剧本有关，这也是游戏的乐趣。
+
+总之，享受一切，享受和主角在世界中的旅程吧！
 
 """
-        if started:
-            help_text +=f"""
-【本剧本玩法说明】
-{self.world.story_readme}"""
-        else:
-            help_text += f"\n左侧选择剧本，点击 /start 开始游戏"
 
         return help_text

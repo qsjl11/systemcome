@@ -65,7 +65,7 @@ async def chat_stream():
                 response = "可用剧本列表：\n" + "\n".join([f"- {story}" for story in stories])
                 logger.info("获取剧本列表成功")
         elif message == '/help':
-            response = system.get_help_info(started=started)
+            response = system.get_help_info()
             logger.info("获取帮助信息成功")
         elif message.startswith('/load'):
             save_name = message[5:].strip() if len(message) > 5 else ""
@@ -81,9 +81,8 @@ async def chat_stream():
         elif not started:
             if message == "/start":
                 started = True
-                response = "【玩法说明】\n"
-                response += f"{system.world.story_readme}\n\n"
-                response += "\n\n【作为玩家的你将扮演系统，你可以向主角发布对话、修改世界任务状态，或者推动故事发展。】\n【即将进入开始场景，请尽情发挥你的想象力帮助主角或者...】\n\n"
+                response = f"{system.world.story_readme}\n\n"
+                response += "\n\n【作为玩家的你将扮演系统，你可以向主角发布对话、修改世界任务状态，或者推动故事发展。】\n【即将进入开始场景，请尽情发挥你的想象力帮助主角或者...】\n\n---\n\n"
                 response += await system.generate_scene_description()
                 logger.info("生成开始场景")
             else:
@@ -116,7 +115,11 @@ async def chat_stream():
                     response = system.character.get_character_info_str()
                     logger.info("获取角色信息成功")
                 elif message == '/world':
-                    response = system.world.get_current_context()
+                    response = system.world.story_readme
+                    logger.info("获取世界信息成功")
+                    logger.info("更新角色档案成功")
+                elif message == '/world_info':
+                    response = system.world.get_world_info()
                     logger.info("获取世界信息成功")
                     logger.info("更新角色档案成功")
                 elif message == '/des':
@@ -126,13 +129,6 @@ async def chat_stream():
                     response = await system.reset()
                     started = False  # 重置游戏状态后，需要重新/start
                     logger.info("重置游戏状态成功")
-                elif message.startswith('/save'):
-                    save_name = message[5:].strip() if len(message) > 5 else ""
-                    if save_name == "":
-                        response = await system.save_game()
-                    else:
-                        response = await system.save_game(save_name)
-                    logger.info(f"保存游戏状态: {save_name}")
                 elif message.startswith('/savef'):
                     save_name = message[6:].strip() if len(message) > 6 else ""
                     if save_name == "":
@@ -140,6 +136,13 @@ async def chat_stream():
                     else:
                         response = await system.save_game(save_name, force=True)
                     logger.info(f"强制保存游戏状态: {save_name}")
+                elif message.startswith('/save'):
+                    save_name = message[5:].strip() if len(message) > 5 else ""
+                    if save_name == "":
+                        response = await system.save_game()
+                    else:
+                        response = await system.save_game(save_name)
+                    logger.info(f"保存游戏状态: {save_name}")
                 else:
                     logger.warning(f"收到未知指令: {message}")
                     response = "无效指令请重新输入"
@@ -171,4 +174,4 @@ async def chat_stream():
 
 if __name__ == '__main__':
     logger.info("启动Web服务器")
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5566)

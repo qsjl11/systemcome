@@ -86,9 +86,6 @@ class Character:
         """
         self.logger.info(f"更新角色属性: {changes}")
 
-        # 保存原始档案
-        original_profile = self.profile
-
         # 构建提示让LLM更新角色档案
         prompt = f"""
 下面是当前的角色档案：
@@ -128,29 +125,6 @@ class Character:
             str: 当前心理活动描述
         """
         return self.thoughts
-
-    async def update_thoughts(self, trigger: str):
-        self.logger.debug(f"更新心理活动 - 触发: {trigger}")
-        """更新心理活动
-
-        Args:
-            trigger: 触发更新的事件描述
-        """
-        prompt = f"""
-# [当前情况]
-{trigger}
-
-#　[角色档案]
-{self.profile}
-
-# [当前心理]
-{self.thoughts}
-
-请生成一段新的心理活动描述（100字以内）：
-        """
-
-        self.thoughts = await self.llm_service.generate_response(prompt, use_small_model=True)
-        self.logger.debug(f"新的心理活动: {self.thoughts}")
 
     def get_character_info_str(self, show_hidden_info=False) -> str:
         self.logger.info("获取角色信息")
